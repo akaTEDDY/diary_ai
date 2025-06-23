@@ -3,9 +3,9 @@ import 'package:diary_ai/models/location_history.dart';
 import 'package:diary_ai/utils/permission_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
-import 'diary_list_page.dart';
-import 'diary_write_page.dart';
-import 'location_history_page.dart';
+import 'tab_diary_list_page.dart';
+import 'tab_diary_write_page.dart';
+import 'tab_location_history_page.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({Key? key}) : super(key: key);
@@ -42,9 +42,9 @@ class _MainPageState extends State<MainPage> {
   @override
   Widget build(BuildContext context) {
     final List<Widget> pages = [
-      DiaryListPage(),
-      DiaryWritePage(),
-      LocationHistoryPage(_locationHistoryManager),
+      TabDiaryListPage(),
+      TabDiaryWritePage(),
+      TabLocationHistoryPage(_locationHistoryManager),
     ];
 
     return Scaffold(

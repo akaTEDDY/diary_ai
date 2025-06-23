@@ -1,12 +1,16 @@
+import 'package:diary_ai/provider/location_diary_provider.dart';
+import 'package:flutter/widgets.dart';
 import 'package:hive/hive.dart';
 import '../models/loc_diary_entry.dart';
+import 'package:provider/provider.dart';
 
 class LocDiaryService {
   static const String boxName = 'location_diary_entries';
 
-  Future<void> addLocDiary(LocDiaryEntry entry) async {
+  Future<void> addLocDiary(BuildContext context, LocDiaryEntry entry) async {
     var box = await Hive.openBox<LocDiaryEntry>(boxName);
     await box.put(entry.id, entry);
+    await context.read<LocationDiaryProvider>().addLocDiary(entry);
   }
 
   Future<List<LocDiaryEntry>> getLocDiariesForToday() async {
@@ -21,9 +25,10 @@ class LocDiaryService {
         .toList();
   }
 
-  Future<void> deleteLocDiary(String id) async {
+  Future<void> deleteLocDiary(BuildContext context, String id) async {
     var box = await Hive.openBox<LocDiaryEntry>(boxName);
     await box.delete(id);
+    await context.read<LocationDiaryProvider>().deleteLocDiary(id);
   }
 
   Future<void> clearAll() async {

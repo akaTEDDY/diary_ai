@@ -1,15 +1,28 @@
 import 'package:hive/hive.dart';
 import '../models/diary_entry.dart';
+import 'package:flutter/widgets.dart';
+import 'package:provider/provider.dart';
+import '../provider/diary_provider.dart';
 
 class DiaryService {
   static const String boxName = 'diary_entries';
 
-  Future<void> addDiary(DiaryEntry entry) async {
+  Future<void> addDiary(BuildContext context, DiaryEntry entry) async {
     var box = await Hive.openBox<List>(boxName);
     final dateTimeKey = entry.dateTime;
     List<DiaryEntry> diaries = (box.get(dateTimeKey)?.cast<DiaryEntry>()) ?? [];
     diaries.add(entry);
     await box.put(dateTimeKey, diaries);
+    await context.read<DiaryProvider>().addDiary(entry);
+  }
+
+  Future<void> deleteDiary(
+      BuildContext context, String dateTime, String id) async {
+    var box = await Hive.openBox<List>(boxName);
+    List<DiaryEntry> diaries = (box.get(dateTime)?.cast<DiaryEntry>()) ?? [];
+    diaries.removeWhere((e) => e.id == id);
+    await box.put(dateTime, diaries);
+    await context.read<DiaryProvider>().deleteDiary(id);
   }
 
   Future<List<DiaryEntry>> getDiariesByDateTime(String dateTime) async {

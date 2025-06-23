@@ -4,17 +4,17 @@ import 'package:flutter/material.dart';
 import 'loc_diary_write_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-class LocationHistoryPage extends StatefulWidget {
+class TabLocationHistoryPage extends StatefulWidget {
   final LocationHistoryManager _locationHistoryManager;
 
-  const LocationHistoryPage(this._locationHistoryManager, {Key? key})
+  const TabLocationHistoryPage(this._locationHistoryManager, {Key? key})
       : super(key: key);
 
   @override
-  State<LocationHistoryPage> createState() => _LocationHistoryPageState();
+  State<TabLocationHistoryPage> createState() => _TabLocationHistoryPageState();
 }
 
-class _LocationHistoryPageState extends State<LocationHistoryPage> {
+class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
   bool _isLoading = true;
   List<LocationHistory> _locationHistory = [];
 
@@ -133,7 +133,6 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
                   itemCount: _locationHistory.length,
                   itemBuilder: (context, index) {
                     final location = _locationHistory[index];
-                    final coordinates = _getCoordinates(location);
                     return ListTile(
                       leading: GestureDetector(
                         onTap: () => _openMap(location),
@@ -148,12 +147,11 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
                           if (location.place != null &&
                               location.place!['name'] != null)
                             Text(
-                              '${location.place!['name']}' +
-                                  (location.place!['tags'] != null &&
-                                          (location.place!['tags'] as List)
-                                              .isNotEmpty
-                                      ? ' (${(location.place!['tags'] as List).join(", ")})'
-                                      : ''),
+                              location.place!['tags'] != null &&
+                                      (location.place!['tags'] as String)
+                                          .isNotEmpty
+                                  ? '${location.place!['name']} (${location.place!['tags']})'
+                                  : '${location.place!['name']}',
                               style: TextStyle(
                                   fontWeight: FontWeight.bold, fontSize: 15),
                             ),
@@ -190,6 +188,7 @@ class _LocationHistoryPageState extends State<LocationHistoryPage> {
                                 LocDiaryWritePage(location: location),
                           ),
                         );
+                        await _loadLocationHistory();
                       },
                     );
                   },

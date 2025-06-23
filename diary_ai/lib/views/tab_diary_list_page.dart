@@ -4,14 +4,14 @@ import '../models/diary_entry.dart';
 import '../services/diary_service.dart';
 import 'dart:io';
 
-class DiaryListPage extends StatefulWidget {
-  const DiaryListPage({Key? key}) : super(key: key);
+class TabDiaryListPage extends StatefulWidget {
+  const TabDiaryListPage({Key? key}) : super(key: key);
 
   @override
-  State<DiaryListPage> createState() => _DiaryListPageState();
+  State<TabDiaryListPage> createState() => _TabDiaryListPageState();
 }
 
-class _DiaryListPageState extends State<DiaryListPage> {
+class _TabDiaryListPageState extends State<TabDiaryListPage> {
   Map<String, DiaryEntry> _todayDiaryMap = {};
   bool _isLoading = true;
   DateTime _focusedDay = DateTime.now();

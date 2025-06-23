@@ -6,6 +6,8 @@ import '../models/loc_diary_entry.dart';
 import '../services/loc_diary_service.dart';
 import 'package:uuid/uuid.dart';
 import '../services/diary_service.dart';
+import 'package:provider/provider.dart';
+import '../provider/location_diary_provider.dart';
 
 extension FirstWhereOrNullExtension<E> on Iterable<E> {
   E? firstWhereOrNull(bool Function(E) test) {
@@ -95,6 +97,15 @@ class _LocDiaryWritePageState extends State<LocDiaryWritePage> {
     }
   }
 
+  Future<void> _pickImages() async {
+    final List<XFile>? images = await _picker.pickMultiImage();
+    if (images != null && images.isNotEmpty) {
+      setState(() {
+        _selectedImages.addAll(images.map((x) => File(x.path)));
+      });
+    }
+  }
+
   void _showImageSourceDialog() {
     showDialog(
       context: context,
@@ -118,6 +129,14 @@ class _LocDiaryWritePageState extends State<LocDiaryWritePage> {
                 onTap: () {
                   Navigator.pop(context);
                   _pickImage(ImageSource.gallery);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.collections),
+                title: Text('갤러리에서 여러 장 선택'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImages();
                 },
               ),
             ],
@@ -170,7 +189,7 @@ class _LocDiaryWritePageState extends State<LocDiaryWritePage> {
       location: widget.location,
       createdAt: _existingEntry?.createdAt ?? now,
     );
-    await LocDiaryService().addLocDiary(entry);
+    await LocDiaryService().addLocDiary(context, entry);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('위치 일기가 저장되었습니다.')),
     );
@@ -179,7 +198,7 @@ class _LocDiaryWritePageState extends State<LocDiaryWritePage> {
 
   Future<void> _deleteLocDiary() async {
     if (_existingEntry == null) return;
-    await LocDiaryService().deleteLocDiary(_existingEntry!.id);
+    await LocDiaryService().deleteLocDiary(context, _existingEntry!.id);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('위치 일기가 삭제되었습니다.')),
     );
@@ -228,8 +247,8 @@ class _LocDiaryWritePageState extends State<LocDiaryWritePage> {
                           style: TextStyle(
                               fontSize: 18, fontWeight: FontWeight.bold)),
                       SizedBox(height: 8),
-                      Text(widget.location.displayName),
-                      Text('시간: ${widget.location.formattedTime}'),
+                      Text(widget.location.simpleName),
+                      Text('작성 시간: ${widget.location.formattedTime}'),
                     ],
                   ),
                 ),
@@ -247,6 +266,52 @@ class _LocDiaryWritePageState extends State<LocDiaryWritePage> {
                 ],
               ),
               SizedBox(height: 16),
+              if (_selectedImages.isNotEmpty)
+                Container(
+                  height: 100,
+                  margin: EdgeInsets.only(bottom: 16),
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _selectedImages.length,
+                    itemBuilder: (context, index) {
+                      return Padding(
+                        padding: EdgeInsets.only(right: 8),
+                        child: Stack(
+                          children: [
+                            Image.file(
+                              _selectedImages[index],
+                              width: 100,
+                              height: 100,
+                              fit: BoxFit.cover,
+                            ),
+                            Positioned(
+                              top: 0,
+                              right: 0,
+                              child: GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _selectedImages.removeAt(index);
+                                  });
+                                },
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.red,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    Icons.close,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
               TextField(
                 controller: _controller,
                 maxLines: 8,
