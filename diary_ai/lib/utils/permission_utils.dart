@@ -22,15 +22,21 @@ class PermissionUtils {
       description: '사용자의 위치 기반 서비스 제공 및 주변 정보 표시',
       permissionType: 'location',
     ),
-  ];
-
-  static final List<PermissionInfo> optionalPermissions = [
     const PermissionInfo(
       name: '알림 권한',
       description: '위치 기반 서비스 상태 및 중요 알림 수신',
       permissionType: 'notification',
       isRequired: false,
     ),
+  ];
+
+  static final List<PermissionInfo> optionalPermissions = [
+    // const PermissionInfo(
+    //   name: '알림 권한',
+    //   description: '위치 기반 서비스 상태 및 중요 알림 수신',
+    //   permissionType: 'notification',
+    //   isRequired: false,
+    // ),
     // Android 10+ 백그라운드 위치 권한은 별도 요청 시 고려
     // const PermissionInfo(
     //   name: '백그라운드 위치 권한',

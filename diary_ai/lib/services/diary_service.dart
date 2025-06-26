@@ -38,4 +38,21 @@ class DiaryService {
     }
     return result;
   }
+
+  Future<void> addDiaryDirect(DiaryEntry entry) async {
+    var box = await Hive.openBox<List>(boxName);
+    final dateTimeKey = entry.dateTime;
+    List<DiaryEntry> diaries = (box.get(dateTimeKey)?.cast<DiaryEntry>()) ?? [];
+    diaries.add(entry);
+    await box.put(dateTimeKey, diaries);
+  }
+
+  Future<void> deleteDiaryDirect(String id) async {
+    var box = await Hive.openBox<List>(boxName);
+    for (var key in box.keys) {
+      List<DiaryEntry> diaries = (box.get(key)?.cast<DiaryEntry>()) ?? [];
+      diaries.removeWhere((e) => e.id == id);
+      await box.put(key, diaries);
+    }
+  }
 }

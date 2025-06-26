@@ -3,6 +3,7 @@ import 'package:common_utils_services/utils/location_utils.dart';
 import 'package:flutter/material.dart';
 import 'loc_diary_write_page.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:intl/intl.dart';
 
 class TabLocationHistoryPage extends StatefulWidget {
   final LocationHistoryManager _locationHistoryManager;
@@ -21,7 +22,6 @@ class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
   @override
   void initState() {
     super.initState();
-    _locationHistory = widget._locationHistoryManager.locationHistory;
     _loadLocationHistory();
   }
 
@@ -40,7 +40,8 @@ class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
       }
       if (mounted) {
         setState(() {
-          _locationHistory = currentHistory;
+          _locationHistory = List.from(currentHistory)
+            ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
           _isLoading = false;
         });
       }
@@ -103,6 +104,15 @@ class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
 
   @override
   Widget build(BuildContext context) {
+    // 날짜별로 그룹핑
+    Map<String, List<LocationHistory>> groupedByDate = {};
+    for (var entry in _locationHistory) {
+      final dateKey = DateFormat('yyyy-MM-dd').format(entry.timestamp);
+      groupedByDate.putIfAbsent(dateKey, () => []).add(entry);
+    }
+    final sortedDateKeys = groupedByDate.keys.toList()
+      ..sort((a, b) => b.compareTo(a)); // 최신 날짜가 위로
+
     return Scaffold(
       appBar: AppBar(
         title: Text('위치 히스토리'),
@@ -130,66 +140,90 @@ class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
                   ),
                 )
               : ListView.builder(
-                  itemCount: _locationHistory.length,
-                  itemBuilder: (context, index) {
-                    final location = _locationHistory[index];
-                    return ListTile(
-                      leading: GestureDetector(
-                        onTap: () => _openMap(location),
-                        child: Icon(Icons.location_on, color: Colors.red),
+                  itemCount: sortedDateKeys.length,
+                  itemBuilder: (context, dateIdx) {
+                    final dateKey = sortedDateKeys[dateIdx];
+                    final entries = groupedByDate[dateKey]!;
+                    return ExpansionTile(
+                      title: Text(
+                        dateKey,
+                        style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blueGrey),
                       ),
-                      title: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('${location.formattedTime}',
-                              style: TextStyle(
-                                  fontSize: 13, color: Colors.black87)),
-                          if (location.place != null &&
-                              location.place!['name'] != null)
-                            Text(
-                              location.place!['tags'] != null &&
-                                      (location.place!['tags'] as String)
-                                          .isNotEmpty
-                                  ? '${location.place!['name']} (${location.place!['tags']})'
-                                  : '${location.place!['name']}',
-                              style: TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 15),
-                            ),
-                          Builder(
-                            builder: (context) {
-                              String address = '';
-                              if (location.place != null &&
-                                  location.place!['address_road'] != null) {
-                                address = location.place!['address_road'];
-                              } else if (location.district != null) {
-                                final lv1 =
-                                    location.district!['lv1_name'] ?? '';
-                                final lv2 =
-                                    location.district!['lv2_name'] ?? '';
-                                final lv3 =
-                                    location.district!['lv3_name'] ?? '';
-                                address = [lv1, lv2, lv3]
-                                    .where((e) => e.isNotEmpty)
-                                    .join(' ');
-                              }
-                              return Text(address,
-                                  style: TextStyle(
-                                      fontSize: 13, color: Colors.black87));
-                            },
-                          ),
-                        ],
-                      ),
-                      trailing: Icon(Icons.arrow_forward_ios),
-                      onTap: () async {
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                LocDiaryWritePage(location: location),
-                          ),
-                        );
-                        await _loadLocationHistory();
-                      },
+                      children: entries
+                          .map((location) => ListTile(
+                                leading: GestureDetector(
+                                  onTap: () => _openMap(location),
+                                  child: Icon(Icons.location_on,
+                                      color: Colors.red),
+                                ),
+                                title: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                        DateFormat('yyyy-MM-dd HH:mm')
+                                            .format(location.timestamp),
+                                        style: TextStyle(
+                                            fontSize: 13,
+                                            color: Colors.black87)),
+                                    if (location.place != null &&
+                                        location.place!['name'] != null)
+                                      Text(
+                                        location.place!['tags'] != null &&
+                                                (location.place!['tags']
+                                                        as String)
+                                                    .isNotEmpty
+                                            ? '${location.place!['name']} (${location.place!['tags']})'
+                                            : '${location.place!['name']}',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 15),
+                                      ),
+                                    Builder(
+                                      builder: (context) {
+                                        String address = '';
+                                        if (location.place != null &&
+                                            location.place!['address_road'] !=
+                                                null) {
+                                          address =
+                                              location.place!['address_road'];
+                                        } else if (location.district != null) {
+                                          final lv1 =
+                                              location.district!['lv1_name'] ??
+                                                  '';
+                                          final lv2 =
+                                              location.district!['lv2_name'] ??
+                                                  '';
+                                          final lv3 =
+                                              location.district!['lv3_name'] ??
+                                                  '';
+                                          address = [lv1, lv2, lv3]
+                                              .where((e) => e.isNotEmpty)
+                                              .join(' ');
+                                        }
+                                        return Text(address,
+                                            style: TextStyle(
+                                                fontSize: 13,
+                                                color: Colors.black87));
+                                      },
+                                    ),
+                                  ],
+                                ),
+                                trailing: Icon(Icons.arrow_forward_ios),
+                                onTap: () async {
+                                  await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          LocDiaryWritePage(location: location),
+                                    ),
+                                  );
+                                  await _loadLocationHistory();
+                                },
+                              ))
+                          .toList(),
                     );
                   },
                 ),

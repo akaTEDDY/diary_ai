@@ -1,8 +1,7 @@
+import 'package:common_utils_services/services/notification_service.dart';
 import 'package:common_utils_services/utils/location_utils.dart';
-import 'package:diary_ai/models/location_history.dart';
 import 'package:diary_ai/utils/permission_utils.dart';
 import 'package:flutter/material.dart';
-import 'package:hive/hive.dart';
 import 'tab_diary_list_page.dart';
 import 'tab_diary_write_page.dart';
 import 'tab_location_history_page.dart';
@@ -16,20 +15,29 @@ class MainPage extends StatefulWidget {
 
 class _MainPageState extends State<MainPage> {
   late LocationHistoryManager _locationHistoryManager;
+  late NotificationService _notificationService;
   int _selectedIndex = 0;
+  bool _initialized = false;
 
   @override
   void initState() {
     super.initState();
 
     _locationHistoryManager = LocationHistoryManager();
+    _notificationService = NotificationService();
 
-    Future.microtask(() async {
-      await PermissionUtils.checkAndRequestPermission(context);
-      await _locationHistoryManager.initialize((location) {
-        // 위치 업데이트, 일기 추가 작성할 지 물어보기
-        // 알림?
-      });
+    _initializeAsync();
+  }
+
+  Future<void> _initializeAsync() async {
+    await PermissionUtils.checkAndRequestPermission(context);
+    await _notificationService.initialize();
+    await _locationHistoryManager.initialize((location) {
+      _notificationService.showNotification(
+          title: location["place"], body: location["tags"]);
+    });
+    setState(() {
+      _initialized = true;
     });
   }
 
@@ -41,6 +49,13 @@ class _MainPageState extends State<MainPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_initialized) {
+      // 초기화 중에는 로딩 화면
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     final List<Widget> pages = [
       TabDiaryListPage(),
       TabDiaryWritePage(),

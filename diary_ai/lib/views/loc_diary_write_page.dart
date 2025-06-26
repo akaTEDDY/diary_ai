@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 import '../services/diary_service.dart';
 import 'package:provider/provider.dart';
 import '../provider/location_diary_provider.dart';
+import 'package:intl/intl.dart';
 
 extension FirstWhereOrNullExtension<E> on Iterable<E> {
   E? firstWhereOrNull(bool Function(E) test) {
@@ -248,7 +249,9 @@ class _LocDiaryWritePageState extends State<LocDiaryWritePage> {
                               fontSize: 18, fontWeight: FontWeight.bold)),
                       SizedBox(height: 8),
                       Text(widget.location.simpleName),
-                      Text('작성 시간: ${widget.location.formattedTime}'),
+                      Text('작성 시간: ' +
+                          DateFormat('yyyy-MM-dd HH:mm')
+                              .format(widget.location.timestamp)),
                     ],
                   ),
                 ),
