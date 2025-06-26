@@ -5,6 +5,7 @@ import '../models/diary_entry.dart';
 import '../services/diary_service.dart';
 import 'dart:io';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 
 class TabDiaryListPage extends StatefulWidget {
   const TabDiaryListPage({Key? key}) : super(key: key);
@@ -24,46 +25,12 @@ class _TabDiaryListPageState extends State<TabDiaryListPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<DiaryProvider>().loadDiaries();
     });
-    // _loadDiaries();
   }
 
-  // Future<void> _loadDiaries() async {
-  //   setState(() {
-  //     _isLoading = true;
-  //   });
-  //   final grouped = await DiaryService().getAllDiariesGroupedByDateTime();
-  //   // 하루에 하나(가장 최근)만 남기기
-  //   Map<String, DiaryEntry> todayDiaryMap = {};
-  //   for (var entry in grouped.entries) {
-  //     // key: yyyy-MM-dd HH:mm
-  //     final dateKey = entry.key.substring(0, 10); // yyyy-MM-dd
-  //     final diaries = entry.value;
-  //     diaries.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-  //     if (!todayDiaryMap.containsKey(dateKey) && diaries.isNotEmpty) {
-  //       todayDiaryMap[dateKey] = diaries.first;
-  //     } else if (diaries.isNotEmpty &&
-  //         diaries.first.createdAt.isAfter(todayDiaryMap[dateKey]!.createdAt)) {
-  //       todayDiaryMap[dateKey] = diaries.first;
-  //     }
-  //   }
-  //   setState(() {
-  //     _todayDiaryMap = todayDiaryMap;
-  //     _isLoading = false;
-  //   });
-  // }
-
   List<DiaryEntry> _getDiaryForDay(BuildContext context, DateTime day) {
-    // final key =
-    //     '${day.year.toString().padLeft(4, '0')}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
-    // if (_todayDiaryMap.containsKey(key)) {
-    //   return [_todayDiaryMap[key]!];
-    // }
-    // return [];
-
     final diaryProvider = context.watch<DiaryProvider>();
     final grouped = diaryProvider.groupedByDate;
-    final key =
-        '${day.year.toString().padLeft(4, '0')}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+    final key = DateFormat('yyyy-MM-dd').format(day);
     return grouped[key] ?? [];
   }
 
