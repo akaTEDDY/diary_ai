@@ -6,8 +6,6 @@ import '../models/loc_diary_entry.dart';
 import '../services/loc_diary_service.dart';
 import 'package:uuid/uuid.dart';
 import '../services/diary_service.dart';
-import 'package:provider/provider.dart';
-import '../provider/location_diary_provider.dart';
 import 'package:intl/intl.dart';
 
 extension FirstWhereOrNullExtension<E> on Iterable<E> {
@@ -42,16 +40,13 @@ class _LocDiaryWritePageState extends State<LocDiaryWritePage> {
 
   Future<void> _checkIfMergedToTodayDiary() async {
     final diaries = await DiaryService().getAllDiariesGroupedByDateTime();
-    final today = DateTime.now();
-    final todayKey =
-        '${today.year.toString().padLeft(4, '0')}-${today.month.toString().padLeft(2, '0')}';
-    final todayDiaries = diaries.entries
-        .where((e) => e.key.startsWith(todayKey))
-        .expand((e) => e.value)
-        .toList();
-    final merged = todayDiaries
-        .any((d) => d.location.displayName == widget.location.displayName);
-    if (merged && mounted) {
+    final todayDiaries = LocDiaryService.getTodayLocDiaries(diaries);
+    final isAlreadyMerged =
+        LocDiaryService.isLocationDisplayNameAlreadyInTodayDiary(
+      widget.location.displayName,
+      todayDiaries,
+    );
+    if (isAlreadyMerged && mounted) {
       await Future.delayed(Duration.zero);
       showDialog(
         context: context,
@@ -76,13 +71,17 @@ class _LocDiaryWritePageState extends State<LocDiaryWritePage> {
 
   Future<void> _loadExistingLocDiary() async {
     final locDiaries = await LocDiaryService().getLocDiariesForToday();
-    final entry = locDiaries.firstWhereOrNull(
-      (e) => e.location.displayName == widget.location.displayName,
+
+    // 새로운 효율적인 함수 사용
+    final existingEntry = LocDiaryService.findLocationDiaryByDisplayName(
+      widget.location.displayName,
+      locDiaries,
     );
-    if (entry != null) {
-      _existingEntry = entry;
-      _controller.text = entry.content;
-      _selectedImages.addAll(entry.photoPaths.map((p) => File(p)));
+
+    if (existingEntry != null) {
+      _existingEntry = existingEntry;
+      _controller.text = existingEntry.content;
+      _selectedImages.addAll(existingEntry.photoPaths.map((p) => File(p)));
     }
     setState(() {
       _isLoading = false;
@@ -155,16 +154,13 @@ class _LocDiaryWritePageState extends State<LocDiaryWritePage> {
       return;
     }
     final diaries = await DiaryService().getAllDiariesGroupedByDateTime();
-    final today = DateTime.now();
-    final todayKey =
-        '${today.year.toString().padLeft(4, '0')}-${today.month.toString().padLeft(2, '0')}';
-    final todayDiaries = diaries.entries
-        .where((e) => e.key.startsWith(todayKey))
-        .expand((e) => e.value)
-        .toList();
-    final merged = todayDiaries
-        .any((d) => d.location.displayName == widget.location.displayName);
-    if (merged && mounted) {
+    final todayDiaries = LocDiaryService.getTodayLocDiaries(diaries);
+    final isAlreadyMerged =
+        LocDiaryService.isLocationDisplayNameAlreadyInTodayDiary(
+      widget.location.displayName,
+      todayDiaries,
+    );
+    if (isAlreadyMerged && mounted) {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(

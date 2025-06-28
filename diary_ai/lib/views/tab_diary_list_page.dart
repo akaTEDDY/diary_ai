@@ -36,7 +36,7 @@ class _TabDiaryListPageState extends State<TabDiaryListPage> {
 
   void _showMergedDetail(DiaryEntry diary) {
     final contents = diary.content.split('\n\n');
-    final photos = diary.photoPaths;
+    final photos = DiaryService.getAllPhotoPaths(diary);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -78,11 +78,10 @@ class _TabDiaryListPageState extends State<TabDiaryListPage> {
   @override
   Widget build(BuildContext context) {
     final diaryProvider = context.watch<DiaryProvider>();
-    final grouped = diaryProvider.groupedByDate;
 
     return Scaffold(
       appBar: AppBar(title: Text('일기 목록')),
-      body: diaryProvider.diaries.isEmpty
+      body: diaryProvider.isLoading
           ? Center(child: CircularProgressIndicator())
           : Column(
               children: [
@@ -108,13 +107,62 @@ class _TabDiaryListPageState extends State<TabDiaryListPage> {
                 const SizedBox(height: 8),
                 Expanded(
                   child: _selectedDay == null
-                      ? Center(child: Text('날짜를 선택하세요.'))
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.calendar_today,
+                                  size: 64, color: Colors.grey),
+                              SizedBox(height: 16),
+                              Text(
+                                '날짜를 선택하세요',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                '일기가 있는 날짜를 선택하면\n해당 날짜의 일기를 볼 수 있습니다',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[500],
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
                       : Builder(
                           builder: (context) {
                             final diaries =
                                 _getDiaryForDay(context, _selectedDay!);
                             if (diaries.isEmpty) {
-                              return Center(child: Text('이 날 작성된 일기가 없습니다.'));
+                              return Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.edit_note,
+                                        size: 64, color: Colors.grey),
+                                    SizedBox(height: 16),
+                                    Text(
+                                      '이 날 작성된 일기가 없습니다',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                    SizedBox(height: 8),
+                                    Text(
+                                      '위치를 방문해서 일기를 작성해보세요',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.grey[500],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
                             }
                             final diary = diaries.first;
                             return Card(
@@ -135,18 +183,21 @@ class _TabDiaryListPageState extends State<TabDiaryListPage> {
                                       ),
                                       SizedBox(height: 8),
                                       Text(diary.content),
-                                      if (diary.photoPaths.isNotEmpty) ...[
+                                      if (DiaryService.getAllPhotoPaths(diary)
+                                          .isNotEmpty) ...[
                                         SizedBox(height: 8),
                                         Wrap(
                                           spacing: 8,
-                                          children: diary.photoPaths
-                                              .map((path) => Image.file(
-                                                    File(path),
-                                                    width: 60,
-                                                    height: 60,
-                                                    fit: BoxFit.cover,
-                                                  ))
-                                              .toList(),
+                                          children:
+                                              DiaryService.getAllPhotoPaths(
+                                                      diary)
+                                                  .map((path) => Image.file(
+                                                        File(path),
+                                                        width: 60,
+                                                        height: 60,
+                                                        fit: BoxFit.cover,
+                                                      ))
+                                                  .toList(),
                                         ),
                                       ],
                                     ],

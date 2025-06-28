@@ -1,5 +1,5 @@
 import 'package:hive/hive.dart';
-import 'package:common_utils_services/models/location_history.dart';
+import 'loc_diary_entry.dart';
 
 part 'diary_entry.g.dart';
 
@@ -8,22 +8,24 @@ class DiaryEntry extends HiveObject {
   @HiveField(0)
   String id;
   @HiveField(1)
-  String content;
+  String content; // 모든 위치 일기 내용을 합친 텍스트
   @HiveField(2)
-  List<String> photoPaths;
+  String dateTime; // yyyy-MM-dd HH:mm (Hive 키용, UI 표시용)
   @HiveField(3)
-  LocationHistory location;
+  DateTime createdAt; // 정확한 시간 계산용
   @HiveField(4)
-  String dateTime; // yyyy-MM-dd HH:mm
-  @HiveField(5)
-  DateTime createdAt;
+  List<LocDiaryEntry> locationDiaries; // 각 위치의 일기들 (사진 포함)
 
   DiaryEntry({
     required this.id,
     required this.content,
-    required this.photoPaths,
-    required this.location,
     required this.dateTime,
     required this.createdAt,
+    required this.locationDiaries,
   });
+
+  // 모든 사진 경로를 가져오는 getter
+  List<String> get allPhotoPaths {
+    return locationDiaries.expand((diary) => diary.photoPaths).toList();
+  }
 }

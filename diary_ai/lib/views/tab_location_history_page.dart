@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:common_utils_services/models/location_history.dart';
 import 'package:common_utils_services/utils/location_utils.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'loc_diary_write_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
@@ -18,6 +21,7 @@ class TabLocationHistoryPage extends StatefulWidget {
 class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
   bool _isLoading = true;
   List<LocationHistory> _locationHistory = [];
+  final platform = MethodChannel('plengi.ai/fromFlutter');
 
   @override
   void initState() {
@@ -115,8 +119,24 @@ class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('위치 히스토리'),
+        title: Text('내 추억의 장소들'),
         actions: [
+          IconButton(
+            icon: Icon(Icons.power),
+            onPressed: () async {
+              await platform.invokeMethod('plengiStartStop');
+            },
+          ),
+          Tooltip(
+            message: '현재 위치 추가하기',
+            child: IconButton(
+              icon: Icon(Icons.pin_drop_sharp),
+              onPressed: () async {
+                String location = await platform.invokeMethod('searchPlace');
+                widget._locationHistoryManager.addLocationHistory(location);
+              },
+            ),
+          ),
           IconButton(
             icon: Icon(Icons.refresh),
             onPressed: _loadLocationHistory,

@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+import 'package:collection/collection.dart';
 import '../models/diary_entry.dart';
 import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
@@ -54,5 +55,21 @@ class DiaryService {
       diaries.removeWhere((e) => e.id == id);
       await box.put(key, diaries);
     }
+  }
+
+  /// DiaryEntry에서 모든 사진 경로를 추출
+  static List<String> getAllPhotoPaths(DiaryEntry diary) {
+    return diary.locationDiaries
+        .expand((locDiary) => locDiary.photoPaths)
+        .toList();
+  }
+
+  /// DiaryEntry에서 특정 위치의 사진 경로를 추출
+  static List<String> getPhotoPathsByLocation(
+      DiaryEntry diary, String locationDisplayName) {
+    final locationDiary = diary.locationDiaries.firstWhereOrNull(
+      (locDiary) => locDiary.location.displayName == locationDisplayName,
+    );
+    return locationDiary?.photoPaths ?? [];
   }
 }

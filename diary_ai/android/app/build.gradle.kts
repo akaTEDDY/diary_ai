@@ -32,8 +32,8 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        resValue("string", "di_talpol", Base64.getEncoder().encodeToString("loplat".toByteArray(Charsets.UTF_8)))
-        resValue("string", "terces_tneilc", Base64.getEncoder().encodeToString("loplatsecret".toByteArray(Charsets.UTF_8)))
+        resValue("string", "di_talpol", Base64.getEncoder().encodeToString("loplatdemo".toByteArray(Charsets.UTF_8)))
+        resValue("string", "terces_tneilc", Base64.getEncoder().encodeToString("loplatdemokey".toByteArray(Charsets.UTF_8)))
     }
 
     buildTypes {
@@ -41,6 +41,7 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
 }

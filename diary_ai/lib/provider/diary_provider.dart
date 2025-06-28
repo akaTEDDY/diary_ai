@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:hive/hive.dart';
 import '../models/diary_entry.dart';
 import '../services/diary_service.dart';
 
 class DiaryProvider extends ChangeNotifier {
   List<DiaryEntry> _diaries = [];
+  bool _isLoading = false;
 
   List<DiaryEntry> get diaries => _diaries;
+  bool get isLoading => _isLoading;
 
   // 날짜별 그룹핑 getter
   Map<String, List<DiaryEntry>> get groupedByDate {
@@ -27,10 +28,19 @@ class DiaryProvider extends ChangeNotifier {
   }
 
   Future<void> loadDiaries() async {
-    final service = DiaryService();
-    final grouped = await service.getAllDiariesGroupedByDateTime();
-    _diaries = grouped.values.expand((e) => e).toList();
+    _isLoading = true;
     notifyListeners();
+
+    try {
+      final service = DiaryService();
+      final grouped = await service.getAllDiariesGroupedByDateTime();
+      _diaries = grouped.values.expand((e) => e).toList();
+    } catch (e) {
+      print('일기 로드 실패: $e');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<void> addDiary(DiaryEntry entry) async {

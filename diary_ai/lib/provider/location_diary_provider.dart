@@ -7,6 +7,11 @@ class LocationDiaryProvider extends ChangeNotifier {
 
   List<LocDiaryEntry> get locDiaries => _locDiaries;
 
+  LocationDiaryProvider() {
+    // Provider 생성 시 초기 데이터 로드
+    loadLocDiaries();
+  }
+
   Future<void> loadLocDiaries() async {
     _locDiaries = await LocDiaryService().getLocDiariesForToday();
     notifyListeners();

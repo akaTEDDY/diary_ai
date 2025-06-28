@@ -6,6 +6,7 @@ import android.widget.Toast
 import com.example.diary_ai.MainApplication.Companion.eventSink
 import com.google.gson.Gson
 import com.loplat.placeengine.OnPlengiListener
+import com.loplat.placeengine.PlaceEngineBase.showPlaceHistoryActivity
 import com.loplat.placeengine.PlengiListener
 import com.loplat.placeengine.PlengiResponse
 import io.flutter.embedding.android.FlutterActivity
@@ -27,6 +28,9 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 if (call.method == "searchPlace") {
                     searchPlace(result)
+                } else if (call.method == "plengiStartStop") {
+                    Plengi.getInstance(this).stop()
+                    Plengi.getInstance(this).start()
                 } else {
                     result.notImplemented()
                 }
@@ -38,6 +42,7 @@ class MainActivity : FlutterActivity() {
 
         Plengi.getInstance(this@MainActivity).listener = object : PlengiListener {
             override fun listen(response: PlengiResponse?) {
+                println("EventStreamHandler: PlengiListener listen is called:" + response.toString())
                 eventSink?.success(Gson().toJson(response))
             }
         }

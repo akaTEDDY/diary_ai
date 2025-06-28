@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:common_utils_services/services/notification_service.dart';
 import 'package:common_utils_services/utils/location_utils.dart';
+import 'package:common_utils_services/models/location_history.dart';
 import 'package:diary_ai/utils/permission_utils.dart';
 import 'package:flutter/material.dart';
 import 'tab_diary_list_page.dart';
@@ -32,9 +35,41 @@ class _MainPageState extends State<MainPage> {
   Future<void> _initializeAsync() async {
     await PermissionUtils.checkAndRequestPermission(context);
     await _notificationService.initialize();
-    await _locationHistoryManager.initialize((location) {
-      _notificationService.showNotification(
-          title: location["place"], body: location["tags"]);
+    await _locationHistoryManager.initialize(50, (location) {
+      try {
+        final Map<String, dynamic> curLocation = json.decode(location);
+        LocationHistory locationHistory = LocationHistory.fromJson(curLocation);
+
+        String title = "";
+        if (locationHistory.place != null) {
+          if (!locationHistory.place!.containsKey("accuracy") ||
+              !locationHistory.place!.containsKey("threshold")) {
+            return;
+          }
+
+          final accuracy = locationHistory.place!["accuracy"];
+          final threshold = locationHistory.place!["threshold"];
+
+          if (accuracy < threshold) {
+            return;
+          }
+
+          if (locationHistory.place!.containsKey("name")) {
+            title += locationHistory.place!["name"];
+          }
+          if (locationHistory.place!.containsKey("tags")) {
+            if (title.isNotEmpty) {
+              title += " ";
+            }
+            title += "(${locationHistory.place!["tags"]})";
+          }
+
+          _notificationService.showNotification(
+              title: title, body: locationHistory.simpleName);
+        }
+      } catch (e) {
+        print(e.toString());
+      }
     });
     setState(() {
       _initialized = true;
@@ -70,8 +105,8 @@ class _MainPageState extends State<MainPage> {
       bottomNavigationBar: BottomNavigationBar(
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.book), label: '일기 목록'),
-          BottomNavigationBarItem(icon: Icon(Icons.edit), label: '일기 쓰기'),
-          BottomNavigationBarItem(icon: Icon(Icons.map), label: '위치 히스토리'),
+          BottomNavigationBarItem(icon: Icon(Icons.edit), label: '추억 모으기'),
+          BottomNavigationBarItem(icon: Icon(Icons.map), label: '내가 지난 장소들'),
         ],
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
