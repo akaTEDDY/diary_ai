@@ -159,7 +159,6 @@ class _TabDiaryListPageState extends State<TabDiaryListPage> {
   Widget build(BuildContext context) {
     final grouped = _getGroupedDiaries(context);
     final sortedDates = _getSortedDates(grouped);
-    final today = DateTime.now();
 
     return Scaffold(
       appBar: AppBar(title: Text('일기 목록')),

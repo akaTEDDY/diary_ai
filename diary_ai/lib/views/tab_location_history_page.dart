@@ -204,14 +204,20 @@ class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
                               : null;
                           Widget iconWidget;
                           if (emoji != null && emoji.isNotEmpty) {
-                            iconWidget = Text(
-                              emoji,
-                              style: TextStyle(fontSize: 28),
-                              textAlign: TextAlign.center,
+                            iconWidget = GestureDetector(
+                              onTap: () => _openMap(location),
+                              child: Text(
+                                emoji,
+                                style: TextStyle(fontSize: 28),
+                                textAlign: TextAlign.center,
+                              ),
                             );
                           } else {
-                            iconWidget = Icon(Icons.location_on,
-                                color: Colors.purple, size: 28);
+                            iconWidget = GestureDetector(
+                              onTap: () => _openMap(location),
+                              child: Icon(Icons.location_on,
+                                  color: Colors.purple, size: 28),
+                            );
                           }
                           return Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
