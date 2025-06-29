@@ -107,7 +107,7 @@ class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
       backgroundColor: const Color(0xFFF8FAFF),
       appBar: AppBar(
         title: Text('소중한 순간들을 모아서'),
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFFF8FAFF),
         elevation: 0,
         foregroundColor: Colors.black87,
       ),
@@ -131,7 +131,7 @@ class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
                   ),
                   SizedBox(height: 8),
                   Text(
-                    '위치를 방문하면 자동으로 일기가 생성됩니다',
+                    '방문한 장소의 일기를 작성해보세요',
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey[500],

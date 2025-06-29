@@ -15,6 +15,8 @@ class LocDiaryEntry extends HiveObject {
   LocationHistory location;
   @HiveField(4)
   DateTime createdAt;
+  @HiveField(5)
+  String? mood;
 
   LocDiaryEntry({
     required this.id,
@@ -22,5 +24,6 @@ class LocDiaryEntry extends HiveObject {
     required this.photoPaths,
     required this.location,
     required this.createdAt,
+    this.mood,
   });
 }

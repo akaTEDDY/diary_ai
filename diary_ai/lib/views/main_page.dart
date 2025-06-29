@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'tab_diary_list_page.dart';
 import 'tab_diary_write_page.dart';
 import 'tab_location_history_page.dart';
+import 'tab_settings.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({Key? key}) : super(key: key);
@@ -95,6 +96,7 @@ class _MainPageState extends State<MainPage> {
       TabDiaryListPage(),
       TabDiaryWritePage(),
       TabLocationHistoryPage(_locationHistoryManager),
+      TabSettingsPage(),
     ];
 
     return Scaffold(
@@ -107,9 +109,15 @@ class _MainPageState extends State<MainPage> {
           BottomNavigationBarItem(icon: Icon(Icons.book), label: '일기 목록'),
           BottomNavigationBarItem(icon: Icon(Icons.edit), label: '추억 모으기'),
           BottomNavigationBarItem(icon: Icon(Icons.map), label: '내가 지난 장소들'),
+          BottomNavigationBarItem(icon: Icon(Icons.settings), label: '설정'),
         ],
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
+        selectedItemColor: Color(0xFF7C3AED),
+        unselectedItemColor: Color(0xFFBDB5E2),
+        backgroundColor: Color(0xFFF8FAFF),
+        type: BottomNavigationBarType.fixed,
+        selectedLabelStyle: TextStyle(fontWeight: FontWeight.bold),
       ),
     );
   }

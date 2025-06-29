@@ -7,6 +7,7 @@ import '../services/loc_diary_service.dart';
 import 'package:uuid/uuid.dart';
 import '../services/diary_service.dart';
 import 'package:intl/intl.dart';
+import 'loc_diary_chat_dialog.dart';
 
 extension FirstWhereOrNullExtension<E> on Iterable<E> {
   E? firstWhereOrNull(bool Function(E) test) {
@@ -31,42 +32,53 @@ class _LocDiaryWritePageState extends State<LocDiaryWritePage> {
   final ImagePicker _picker = ImagePicker();
   LocDiaryEntry? _existingEntry;
   bool _isLoading = true;
+  final List<String> _moodEmojis = [
+    '😊',
+    '😍',
+    '😢',
+    '😡',
+    '😱',
+    '😴',
+    '🤩',
+    '😌'
+  ];
+  String? _selectedMood;
 
   @override
   void initState() {
     super.initState();
     _checkIfMergedToTodayDiary();
+    _selectedMood = null;
   }
 
   Future<void> _checkIfMergedToTodayDiary() async {
-    final diaries = await DiaryService().getAllDiariesGroupedByDateTime();
-    final todayDiaries = LocDiaryService.getTodayLocDiaries(diaries);
-    final isAlreadyMerged =
-        LocDiaryService.isLocationDisplayNameAlreadyInTodayDiary(
-      widget.location.displayName,
-      todayDiaries,
-    );
-    if (isAlreadyMerged && mounted) {
-      await Future.delayed(Duration.zero);
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text('수정 불가'),
-          content: Text('이 위치의 위치 일기는 오늘의 일기에 병합되어 더 이상 수정할 수 없습니다.'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                Navigator.of(context).pop();
-              },
-              child: Text('확인'),
-            ),
-          ],
-        ),
-      );
-    } else {
-      _loadExistingLocDiary();
-    }
+    // final diaries = await DiaryService().getAllDiariesGroupedByDateTime();
+    // final todayDiaries = LocDiaryService.getTodayLocDiaries(diaries);
+    // final isAlreadyMerged =
+    //     LocDiaryService.isLocationDisplayNameAlreadyInTodayDiary(
+    //   widget.location.displayName,
+    //   todayDiaries,
+    // );
+    // if (isAlreadyMerged && mounted) {
+    //   await Future.delayed(Duration.zero);
+    //   showDialog(
+    //     context: context,
+    //     builder: (context) => AlertDialog(
+    //       title: Text('수정 불가'),
+    //       content: Text('이 위치의 위치 일기는 오늘의 일기에 병합되어 더 이상 수정할 수 없습니다.'),
+    //       actions: [
+    //         TextButton(
+    //           onPressed: () {
+    //             Navigator.of(context).pop();
+    //           },
+    //           child: Text('확인'),
+    //         ),
+    //       ],
+    //     ),
+    //   );
+    // } else {
+    _loadExistingLocDiary();
+    // }
   }
 
   Future<void> _loadExistingLocDiary() async {
@@ -82,6 +94,7 @@ class _LocDiaryWritePageState extends State<LocDiaryWritePage> {
       _existingEntry = existingEntry;
       _controller.text = existingEntry.content;
       _selectedImages.addAll(existingEntry.photoPaths.map((p) => File(p)));
+      _selectedMood = existingEntry.mood;
     }
     setState(() {
       _isLoading = false;
@@ -185,6 +198,7 @@ class _LocDiaryWritePageState extends State<LocDiaryWritePage> {
       photoPaths: _selectedImages.map((f) => f.path).toList(),
       location: widget.location,
       createdAt: _existingEntry?.createdAt ?? now,
+      mood: _selectedMood,
     );
     await LocDiaryService().addLocDiary(context, entry);
     ScaffoldMessenger.of(context).showSnackBar(
@@ -211,7 +225,9 @@ class _LocDiaryWritePageState extends State<LocDiaryWritePage> {
       );
     }
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFF),
       appBar: AppBar(
+        backgroundColor: const Color(0xFFF8FAFF),
         title: Text('위치 일기 작성/수정'),
         actions: [
           if (_existingEntry != null)
@@ -239,7 +255,7 @@ class _LocDiaryWritePageState extends State<LocDiaryWritePage> {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16)),
                 child: Padding(
-                  padding: EdgeInsets.all(18.0),
+                  padding: EdgeInsets.all(12.0),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -263,11 +279,11 @@ class _LocDiaryWritePageState extends State<LocDiaryWritePage> {
                                     fontWeight: FontWeight.bold,
                                     fontSize: 17,
                                     color: Color(0xFF5B21B6))),
-                            SizedBox(height: 6),
+                            SizedBox(height: 4),
                             Text(_getLocationAddress(widget.location),
                                 style: TextStyle(
                                     fontSize: 13, color: Colors.grey[700])),
-                            SizedBox(height: 8),
+                            SizedBox(height: 4),
                             Text(
                                 '방문 시간: ' +
                                     DateFormat('yyyy-MM-dd HH:mm')
@@ -284,15 +300,32 @@ class _LocDiaryWritePageState extends State<LocDiaryWritePage> {
                 ),
               ),
               SizedBox(height: 16),
-              Text('위치 기록', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text('방문 당시 기분', style: TextStyle(fontWeight: FontWeight.bold)),
               SizedBox(height: 8),
-              TextField(
-                controller: _controller,
-                maxLines: 4,
-                decoration: InputDecoration(
-                  hintText: '이 위치에서의 기록을 남겨보세요...',
-                  border: OutlineInputBorder(),
-                ),
+              Wrap(
+                spacing: 12,
+                children: _moodEmojis.map((emoji) {
+                  final isSelected = _selectedMood == emoji;
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _selectedMood = emoji;
+                      });
+                    },
+                    child: Container(
+                      padding: EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color:
+                            isSelected ? Colors.purple[100] : Colors.grey[100],
+                        shape: BoxShape.circle,
+                        border: isSelected
+                            ? Border.all(color: Colors.purple, width: 2)
+                            : null,
+                      ),
+                      child: Text(emoji, style: TextStyle(fontSize: 18)),
+                    ),
+                  );
+                }).toList(),
               ),
               SizedBox(height: 16),
               Row(
@@ -302,11 +335,12 @@ class _LocDiaryWritePageState extends State<LocDiaryWritePage> {
                       style: TextStyle(fontWeight: FontWeight.bold)),
                   ElevatedButton.icon(
                     onPressed: _showImageSourceDialog,
-                    icon: Icon(Icons.camera_alt),
-                    label: Text('사진 추가'),
+                    icon: Icon(Icons.camera_alt, color: Colors.purple),
+                    label:
+                        Text('사진 추가', style: TextStyle(color: Colors.purple)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.purple[100],
-                      foregroundColor: Colors.purple[700],
+                      minimumSize: Size(0, 40),
                     ),
                   ),
                 ],
@@ -381,6 +415,42 @@ class _LocDiaryWritePageState extends State<LocDiaryWritePage> {
                     ),
                   ),
                 ),
+              SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('위치 기록', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (context) => LocDiaryChatDialog(
+                          photoPaths:
+                              _selectedImages.map((f) => f.path).toList(),
+                          locationName: widget.location.simpleName,
+                        ),
+                      );
+                    },
+                    icon: Icon(Icons.smart_toy, color: Colors.purple),
+                    label: Text('AI의 도움 받기',
+                        style: TextStyle(color: Colors.purple)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.purple[100],
+                      minimumSize: Size(0, 40),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 8),
+              TextField(
+                controller: _controller,
+                maxLines: 4,
+                decoration: InputDecoration(
+                  hintText: '이 위치에서의 기록을 남겨보세요...',
+                  border: OutlineInputBorder(),
+                ),
+              ),
               SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,

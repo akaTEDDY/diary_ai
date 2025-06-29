@@ -116,8 +116,10 @@ class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
       ..sort((a, b) => b.compareTo(a)); // 최신 날짜가 위로
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFF),
       appBar: AppBar(
-        title: Text('내 추억의 장소들'),
+        backgroundColor: const Color(0xFFF8FAFF),
+        title: Text('내가 지난 장소들'),
         actions: [
           IconButton(
             icon: Icon(Icons.power),
@@ -271,7 +273,8 @@ class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
                                     await _loadLocationHistory();
                                   },
                                   child: Container(
-                                    margin: EdgeInsets.only(bottom: 32, top: 4),
+                                    margin: EdgeInsets.only(
+                                        bottom: 32, top: 4, right: 12),
                                     padding: EdgeInsets.symmetric(
                                         horizontal: 20, vertical: 18),
                                     decoration: BoxDecoration(

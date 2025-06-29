@@ -161,7 +161,11 @@ class _TabDiaryListPageState extends State<TabDiaryListPage> {
     final sortedDates = _getSortedDates(grouped);
 
     return Scaffold(
-      appBar: AppBar(title: Text('일기 목록')),
+      backgroundColor: const Color(0xFFF8FAFF),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFF8FAFF),
+        title: Text('일기 목록'),
+      ),
       body: Column(
         children: [
           // 달력
