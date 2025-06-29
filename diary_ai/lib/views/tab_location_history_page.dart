@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:common_utils_services/models/location_history.dart';
 import 'package:common_utils_services/utils/location_utils.dart';
 import 'package:flutter/material.dart';
@@ -164,86 +162,203 @@ class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
                   itemBuilder: (context, dateIdx) {
                     final dateKey = sortedDateKeys[dateIdx];
                     final entries = groupedByDate[dateKey]!;
-                    return ExpansionTile(
-                      title: Text(
-                        dateKey,
-                        style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blueGrey),
-                      ),
-                      children: entries
-                          .map((location) => ListTile(
-                                leading: GestureDetector(
-                                  onTap: () => _openMap(location),
-                                  child: Icon(Icons.location_on,
-                                      color: Colors.red),
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 날짜 헤더
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 16.0, horizontal: 16),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.purple[100],
+                                  borderRadius: BorderRadius.circular(20),
                                 ),
-                                title: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                child: Text(
+                                  DateFormat('yyyy년 M월 d일')
+                                      .format(DateTime.parse(dateKey)),
+                                  style: TextStyle(
+                                    color: Colors.purple[700],
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                  child: Divider(
+                                      thickness: 1,
+                                      color: Colors.grey[300],
+                                      indent: 12)),
+                            ],
+                          ),
+                        ),
+                        // 타임라인
+                        ...List.generate(entries.length, (idx) {
+                          final location = entries[idx];
+                          // 아이콘(이모지 또는 대표 아이콘)
+                          String? emoji = location.place != null
+                              ? location.place!['icon'] as String?
+                              : null;
+                          Widget iconWidget;
+                          if (emoji != null && emoji.isNotEmpty) {
+                            iconWidget = Text(
+                              emoji,
+                              style: TextStyle(fontSize: 28),
+                              textAlign: TextAlign.center,
+                            );
+                          } else {
+                            iconWidget = Icon(Icons.location_on,
+                                color: Colors.purple, size: 28);
+                          }
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // 타임라인 점 + 선
+                              Container(
+                                width: 56,
+                                child: Column(
                                   children: [
-                                    Text(
-                                        DateFormat('yyyy-MM-dd HH:mm')
-                                            .format(location.timestamp),
-                                        style: TextStyle(
-                                            fontSize: 13,
-                                            color: Colors.black87)),
-                                    if (location.place != null &&
-                                        location.place!['name'] != null)
-                                      Text(
-                                        location.place!['tags'] != null &&
-                                                (location.place!['tags']
-                                                        as String)
-                                                    .isNotEmpty
-                                            ? '${location.place!['name']} (${location.place!['tags']})'
-                                            : '${location.place!['name']}',
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 15),
+                                    Container(
+                                      width: 40,
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        border: Border.all(
+                                            color: Colors.purple[300]!,
+                                            width: 4),
+                                        shape: BoxShape.circle,
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color:
+                                                Colors.purple.withOpacity(0.08),
+                                            blurRadius: 4,
+                                            offset: Offset(0, 2),
+                                          ),
+                                        ],
                                       ),
-                                    Builder(
-                                      builder: (context) {
-                                        String address = '';
-                                        if (location.place != null &&
-                                            location.place!['address_road'] !=
-                                                null) {
-                                          address =
-                                              location.place!['address_road'];
-                                        } else if (location.district != null) {
-                                          final lv1 =
-                                              location.district!['lv1_name'] ??
-                                                  '';
-                                          final lv2 =
-                                              location.district!['lv2_name'] ??
-                                                  '';
-                                          final lv3 =
-                                              location.district!['lv3_name'] ??
-                                                  '';
-                                          address = [lv1, lv2, lv3]
-                                              .where((e) => e.isNotEmpty)
-                                              .join(' ');
-                                        }
-                                        return Text(address,
-                                            style: TextStyle(
-                                                fontSize: 13,
-                                                color: Colors.black87));
-                                      },
+                                      alignment: Alignment.center,
+                                      child: iconWidget,
                                     ),
+                                    if (idx != entries.length - 1)
+                                      Container(
+                                        width: 4,
+                                        height: 60,
+                                        color: Colors.purple[100],
+                                      ),
                                   ],
                                 ),
-                                trailing: Icon(Icons.arrow_forward_ios),
-                                onTap: () async {
-                                  await Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          LocDiaryWritePage(location: location),
+                              ),
+                              // 내용 카드
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () async {
+                                    await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => LocDiaryWritePage(
+                                            location: location),
+                                      ),
+                                    );
+                                    await _loadLocationHistory();
+                                  },
+                                  child: Container(
+                                    margin: EdgeInsets.only(bottom: 32, top: 4),
+                                    padding: EdgeInsets.symmetric(
+                                        horizontal: 20, vertical: 18),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(18),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.07),
+                                          blurRadius: 12,
+                                          offset: Offset(0, 4),
+                                        ),
+                                      ],
                                     ),
-                                  );
-                                  await _loadLocationHistory();
-                                },
-                              ))
-                          .toList(),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                location.place?['name'] ??
+                                                    location.simpleName,
+                                                style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 17,
+                                                    color: Colors.black87),
+                                              ),
+                                              SizedBox(height: 6),
+                                              Row(
+                                                children: [
+                                                  Icon(Icons.place,
+                                                      size: 16,
+                                                      color:
+                                                          Colors.purple[200]),
+                                                  SizedBox(width: 4),
+                                                  Expanded(
+                                                    child: Text(
+                                                      (location.place?['address_road']
+                                                                      as String?)
+                                                                  ?.isNotEmpty ==
+                                                              true
+                                                          ? location.place![
+                                                              'address_road']
+                                                          : (location.place?['address']
+                                                                          as String?)
+                                                                      ?.isNotEmpty ==
+                                                                  true
+                                                              ? location.place![
+                                                                  'address']
+                                                              : '',
+                                                      style: TextStyle(
+                                                          fontSize: 13,
+                                                          color:
+                                                              Colors.grey[600]),
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        // 방문 시간 컬러 배지
+                                        Container(
+                                          padding: EdgeInsets.symmetric(
+                                              horizontal: 12, vertical: 6),
+                                          decoration: BoxDecoration(
+                                            color: Colors.purple[50],
+                                            borderRadius:
+                                                BorderRadius.circular(16),
+                                          ),
+                                          child: Text(
+                                            DateFormat('hh:mm a')
+                                                .format(location.timestamp),
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.purple[700],
+                                                fontSize: 13),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        }),
+                      ],
                     );
                   },
                 ),

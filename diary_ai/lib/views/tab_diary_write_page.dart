@@ -17,8 +17,6 @@ class TabDiaryWritePage extends StatefulWidget {
 }
 
 class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
-  List<LocDiaryEntry> _locDiaries = [];
-  bool _isLoading = true;
   Set<String> _selectedIds = {};
 
   // 카드 슬라이더 관련
@@ -32,7 +30,6 @@ class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
     super.initState();
     _cardPageController = PageController();
     _photoPageController = PageController();
-    _loadLocDiaries();
   }
 
   @override
@@ -40,20 +37,6 @@ class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
     _cardPageController.dispose();
     _photoPageController.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadLocDiaries() async {
-    setState(() {
-      _isLoading = true;
-    });
-    final locDiaries = await LocDiaryService().getLocDiariesForToday();
-    // 시간순으로 정렬 (최신 시간이 위로)
-    locDiaries.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    setState(() {
-      _locDiaries = locDiaries;
-      _isLoading = false;
-      _selectedIds.removeWhere((id) => !_locDiaries.any((e) => e.id == id));
-    });
   }
 
   void _toggleSelection(String id) {
@@ -67,8 +50,9 @@ class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
   }
 
   Future<void> _onSaveTodayDiary() async {
+    final provider = context.read<LocationDiaryProvider>();
     final selected =
-        _locDiaries.where((e) => _selectedIds.contains(e.id)).toList();
+        provider.locDiaries.where((e) => _selectedIds.contains(e.id)).toList();
     if (selected.isEmpty) return;
 
     final now = DateTime.now();
@@ -97,7 +81,7 @@ class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
         _selectedIds.clear();
       });
 
-      await _loadLocDiaries();
+      await provider.loadLocDiaries();
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('오늘의 일기가 저장되었습니다.')),
@@ -115,7 +99,6 @@ class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
     super.didChangeDependencies();
     // Provider에서 데이터 로드
     context.read<LocationDiaryProvider>().loadLocDiaries();
-    _loadLocDiaries();
   }
 
   @override
@@ -128,144 +111,138 @@ class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
         elevation: 0,
         foregroundColor: Colors.black87,
       ),
-      body: _isLoading
-          ? Center(child: CircularProgressIndicator())
-          : Consumer<LocationDiaryProvider>(
-              builder: (context, provider, child) {
-                // Provider 데이터와 로컬 데이터를 함께 사용
-                final locDiaries = provider.locDiaries.isNotEmpty
-                    ? provider.locDiaries
-                    : _locDiaries;
+      body: Consumer<LocationDiaryProvider>(
+        builder: (context, provider, child) {
+          final locDiaries = provider.locDiaries;
 
-                if (locDiaries.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.location_off, size: 64, color: Colors.grey),
-                        SizedBox(height: 16),
-                        Text(
-                          '아직 위치 일기가 없습니다',
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          '위치를 방문하면 자동으로 일기가 생성됩니다',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[500],
-                          ),
-                        ),
-                      ],
+          if (locDiaries.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.location_off, size: 64, color: Colors.grey),
+                  SizedBox(height: 16),
+                  Text(
+                    '아직 위치 일기가 없습니다',
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: Colors.grey[600],
                     ),
-                  );
-                }
-
-                return Column(
-                  children: [
-                    // 헤더
-                    Container(
-                      padding: EdgeInsets.all(16),
-                      child: Text(
-                        '오늘의 소중한 일기가 될 순간을 선택해주세요',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    '위치를 방문하면 자동으로 일기가 생성됩니다',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[500],
                     ),
+                  ),
+                ],
+              ),
+            );
+          }
 
-                    // 카드 슬라이더
-                    Expanded(
-                      child: PageView.builder(
-                        controller: _cardPageController,
-                        onPageChanged: (index) {
-                          setState(() {
-                            _currentCardIndex = index;
-                            _currentPhotoIndex = 0;
-                          });
-                        },
-                        itemCount: locDiaries.length,
-                        itemBuilder: (context, index) {
-                          final entry = locDiaries[index];
-                          return _buildDiaryCard(entry, index);
-                        },
-                      ),
-                    ),
+          return Column(
+            children: [
+              // 헤더
+              Container(
+                padding: EdgeInsets.all(16),
+                child: Text(
+                  '오늘의 소중한 일기가 될 순간을 선택해주세요',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
 
-                    // 카드 인디케이터
-                    Container(
-                      padding: EdgeInsets.symmetric(vertical: 16),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(
-                          locDiaries.length,
-                          (index) => GestureDetector(
-                            onTap: () {
-                              _cardPageController.animateToPage(
-                                index,
-                                duration: Duration(milliseconds: 300),
-                                curve: Curves.easeInOut,
-                              );
-                            },
-                            child: Container(
-                              width: 12,
-                              height: 12,
-                              margin: EdgeInsets.symmetric(horizontal: 4),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: index == _currentCardIndex
-                                    ? Colors.blue[600]
-                                    : Colors.grey[300],
-                              ),
-                            ),
-                          ),
+              // 카드 슬라이더
+              Expanded(
+                child: PageView.builder(
+                  controller: _cardPageController,
+                  onPageChanged: (index) {
+                    setState(() {
+                      _currentCardIndex = index;
+                      _currentPhotoIndex = 0;
+                    });
+                  },
+                  itemCount: locDiaries.length,
+                  itemBuilder: (context, index) {
+                    final entry = locDiaries[index];
+                    return _buildDiaryCard(entry, index);
+                  },
+                ),
+              ),
+
+              // 카드 인디케이터
+              Container(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(
+                    locDiaries.length,
+                    (index) => GestureDetector(
+                      onTap: () {
+                        _cardPageController.animateToPage(
+                          index,
+                          duration: Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                        );
+                      },
+                      child: Container(
+                        width: 12,
+                        height: 12,
+                        margin: EdgeInsets.symmetric(horizontal: 4),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: index == _currentCardIndex
+                              ? Colors.blue[600]
+                              : Colors.grey[300],
                         ),
                       ),
                     ),
+                  ),
+                ),
+              ),
 
-                    // 하단 버튼
-                    Container(
-                      padding: EdgeInsets.all(16),
-                      child: SizedBox(
-                        width: double.infinity,
-                        height: 56,
-                        child: ElevatedButton(
-                          onPressed: _selectedIds.isNotEmpty
-                              ? _onSaveTodayDiary
-                              : null,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _selectedIds.isNotEmpty
-                                ? Colors.blue[600]
-                                : Colors.grey[300],
-                            foregroundColor: _selectedIds.isNotEmpty
-                                ? Colors.white
-                                : Colors.grey[500],
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            elevation: _selectedIds.isNotEmpty ? 4 : 0,
-                          ),
-                          child: Text(
-                            _selectedIds.isNotEmpty
-                                ? '${_selectedIds.length}개의 순간으로 일기 만들기'
-                                : '순간을 선택해주세요',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
+              // 하단 버튼
+              Container(
+                padding: EdgeInsets.all(16),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed:
+                        _selectedIds.isNotEmpty ? _onSaveTodayDiary : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _selectedIds.isNotEmpty
+                          ? Colors.blue[600]
+                          : Colors.grey[300],
+                      foregroundColor: _selectedIds.isNotEmpty
+                          ? Colors.white
+                          : Colors.grey[500],
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: _selectedIds.isNotEmpty ? 4 : 0,
+                    ),
+                    child: Text(
+                      _selectedIds.isNotEmpty
+                          ? '${_selectedIds.length}개의 순간으로 일기 만들기'
+                          : '순간을 선택해주세요',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ],
-                );
-              },
-            ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 

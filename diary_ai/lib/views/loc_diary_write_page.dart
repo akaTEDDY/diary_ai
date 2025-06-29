@@ -232,99 +232,170 @@ class _LocDiaryWritePageState extends State<LocDiaryWritePage> {
           padding: EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
             children: [
               Card(
+                color: Color(0xFFF3E8FF),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16)),
                 child: Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Column(
+                  padding: EdgeInsets.all(18.0),
+                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('위치 정보',
-                          style: TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold)),
-                      SizedBox(height: 8),
-                      Text(widget.location.simpleName),
-                      Text('작성 시간: ' +
-                          DateFormat('yyyy-MM-dd HH:mm')
-                              .format(widget.location.timestamp)),
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: Color(0xFFE9D5FF),
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: _buildLocationIcon(widget.location),
+                      ),
+                      SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(widget.location.simpleName,
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 17,
+                                    color: Color(0xFF5B21B6))),
+                            SizedBox(height: 6),
+                            Text(_getLocationAddress(widget.location),
+                                style: TextStyle(
+                                    fontSize: 13, color: Colors.grey[700])),
+                            SizedBox(height: 8),
+                            Text(
+                                '방문 시간: ' +
+                                    DateFormat('yyyy-MM-dd HH:mm')
+                                        .format(widget.location.timestamp),
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.purple[700],
+                                    fontWeight: FontWeight.w500)),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ),
               SizedBox(height: 16),
-              Row(
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: _showImageSourceDialog,
-                    icon: Icon(Icons.add_a_photo),
-                    label: Text('사진 첨부'),
-                  ),
-                  SizedBox(width: 8),
-                  Text('${_selectedImages.length}장 선택됨'),
-                ],
-              ),
-              SizedBox(height: 16),
-              if (_selectedImages.isNotEmpty)
-                Container(
-                  height: 100,
-                  margin: EdgeInsets.only(bottom: 16),
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _selectedImages.length,
-                    itemBuilder: (context, index) {
-                      return Padding(
-                        padding: EdgeInsets.only(right: 8),
-                        child: Stack(
-                          children: [
-                            Image.file(
-                              _selectedImages[index],
-                              width: 100,
-                              height: 100,
-                              fit: BoxFit.cover,
-                            ),
-                            Positioned(
-                              top: 0,
-                              right: 0,
-                              child: GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    _selectedImages.removeAt(index);
-                                  });
-                                },
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.red,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    Icons.close,
-                                    color: Colors.white,
-                                    size: 20,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
+              Text('위치 기록', style: TextStyle(fontWeight: FontWeight.bold)),
+              SizedBox(height: 8),
               TextField(
                 controller: _controller,
-                maxLines: 8,
+                maxLines: 4,
                 decoration: InputDecoration(
-                  hintText: '이 위치에서의 위치 일기를 작성하세요...',
+                  hintText: '이 위치에서의 기록을 남겨보세요...',
                   border: OutlineInputBorder(),
                 ),
               ),
               SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('사진 (${_selectedImages.length})',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  ElevatedButton.icon(
+                    onPressed: _showImageSourceDialog,
+                    icon: Icon(Icons.camera_alt),
+                    label: Text('사진 추가'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.purple[100],
+                      foregroundColor: Colors.purple[700],
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 8),
+              if (_selectedImages.isNotEmpty)
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: NeverScrollableScrollPhysics(),
+                  itemCount: _selectedImages.length,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 8,
+                    childAspectRatio: 1,
+                  ),
+                  itemBuilder: (context, index) {
+                    return Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.file(
+                            _selectedImages[index],
+                            width: double.infinity,
+                            height: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        Positioned(
+                          top: 2,
+                          right: 2,
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _selectedImages.removeAt(index);
+                              });
+                            },
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(Icons.close,
+                                  color: Colors.white, size: 18),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                )
+              else
+                Container(
+                  width: double.infinity,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                        color: Colors.grey[300]!,
+                        style: BorderStyle.solid,
+                        width: 2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.camera_alt, color: Colors.grey, size: 32),
+                        SizedBox(height: 8),
+                        Text('사진을 추가해보세요',
+                            style: TextStyle(color: Colors.grey)),
+                      ],
+                    ),
+                  ),
+                ),
+              SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: _saveLocDiary,
-                  child: Text('저장'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.purple[600],
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: Text('저장하기',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
@@ -332,5 +403,24 @@ class _LocDiaryWritePageState extends State<LocDiaryWritePage> {
         ),
       ),
     );
+  }
+
+  Widget _buildLocationIcon(LocationHistory location) {
+    String? emoji =
+        location.place != null ? location.place!['icon'] as String? : null;
+    if (emoji != null && emoji.isNotEmpty) {
+      return Text(emoji, style: TextStyle(fontSize: 28));
+    }
+    return Icon(Icons.location_on, color: Color(0xFF7C3AED), size: 28);
+  }
+
+  String _getLocationAddress(LocationHistory location) {
+    if (location.place != null) {
+      final road = location.place!['address_road'] as String?;
+      if (road != null && road.isNotEmpty) return road;
+      final addr = location.place!['address'] as String?;
+      if (addr != null && addr.isNotEmpty) return addr;
+    }
+    return '';
   }
 }
