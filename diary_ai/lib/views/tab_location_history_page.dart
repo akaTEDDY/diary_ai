@@ -1,7 +1,9 @@
 import 'package:common_utils_services/models/location_history.dart';
 import 'package:common_utils_services/utils/location_utils.dart';
+import 'package:diary_ai/provider/location_history_update_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'loc_diary_write_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
@@ -25,6 +27,16 @@ class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
   void initState() {
     super.initState();
     _loadLocationHistory();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final provider = Provider.of<LocationHistoryUpdateProvider>(context);
+    if (provider.updated) {
+      _loadLocationHistory();
+      provider.setUpdated(false);
+    }
   }
 
   Future<void> _loadLocationHistory() async {

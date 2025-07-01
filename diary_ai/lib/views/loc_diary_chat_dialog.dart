@@ -1,4 +1,10 @@
+import 'dart:async';
+
+import 'package:common_utils_services/models/message.dart';
+import 'package:common_utils_services/services/ai_services.dart';
+import 'package:diary_ai/utils/prompt_utils.dart';
 import 'package:flutter/material.dart';
+import 'package:hive/hive.dart';
 
 class LocDiaryChatDialog extends StatefulWidget {
   final List<String> photoPaths;
@@ -17,44 +23,99 @@ class LocDiaryChatDialog extends StatefulWidget {
 
 class _LocDiaryChatDialogState extends State<LocDiaryChatDialog> {
   final TextEditingController _controller = TextEditingController();
-  final List<Map<String, String>> _messages = [
-    {'notice': 'AI와 대화하면서 일기를 작성해보세요. AI와 주고받은 대화로 일기가 작성됩니다.'},
-    {
-      'ai': '안녕? 스타벅스 강남점에 갔구나? 마신건 아이스 아메리카노인가? 요즘 더워서 아이스 아메리카노없인 힘들지 많이 힘들지?'
-    },
-    {'user': '응 출근길에 들러서 하나 샀어. 역시 직장인은 모닝 커피가 있어야 일을 할 수 있지 '},
-    {'ai': '그렇구나 오늘 출근길 컨디션은 어때?'},
-    {'user': '어제 피곤해서 일찍 잤더니 컨디션이 나쁘지 않아.'},
-    {'ai': '컨디션 좋다니 다행이다. 아침에 커피 주문할 때 사람이 붐비진 않았어?'},
-    {'user': '조금 붐비긴 했는데 생각보다 빨리 받았어.'},
-    {'ai': '오늘도 출근하느라 고생했어! 오늘도 내일도 화이팅!'},
-  ];
+  StreamSubscription? _aiResponseSubscription;
+  String _currentAiResponse = '';
+  final List<Message> _messages = [];
+  //  [
+  //   Message(
+  //     role:'notice',
+  //     content:'AI와 대화하면서 일기를 작성해보세요. AI와 주고받은 대화로 일기가 작성됩니다.'),
+  //   Message(
+  //     role: 'assistant',
+  //     content: '안녕? 스타벅스 강남점에 갔구나? 마신건 아이스 아메리카노인가? 요즘 더워서 아이스 아메리카노없인 힘들지 많이 힘들지?'),
+  //   Message(
+  //     role: 'user',
+  //     content: '응 출근길에 들러서 하나 샀어. 역시 직장인은 모닝 커피가 있어야 일을 할 수 있지 '),
+  //   Message(
+  //     role: 'assistant',
+  //     content: '그렇구나 오늘 출근길 컨디션은 어때?'),
+  //   Message(
+  //     role: 'user',
+  //     content: '어제 피곤해서 일찍 잤더니 컨디션이 나쁘지 않아.'),
+  //   Message(
+  //     role: 'assistant',
+  //     content: '컨디션 좋다니 다행이다. 아침에 커피 주문할 때 사람이 붐비진 않았어?'),
+  //   Message(
+  //     role: 'user',
+  //     content: '조금 붐비긴 했는데 생각보다 빨리 받았어.'),
+  //   Message(
+  //     role: 'assistant',
+  //     content: '오늘도 출근하느라 고생했어! 오늘도 내일도 화이팅!'),
+  // ];
+
+  // late Box<Message> messageBox;
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
+    Future.microtask(() async {
+      // messageBox = await Hive.openBox<Message>('messages');
+    });
   }
 
   void _sendMessage() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
     setState(() {
-      _messages.add({'user': text});
+      _messages.add(Message(role: 'user', content: text));
       _controller.clear();
       _isLoading = true;
     });
-    // TODO: AI 응답 받아오기 (임시 딜레이)
-    await Future.delayed(Duration(seconds: 1));
-    setState(() {
-      _messages.add({'ai': 'AI의 응답 예시: "$text"에 대해 질문/피드백'});
-      _isLoading = false;
-    });
+
+    _currentAiResponse = '';
+
+    final aiServices = AIServices.instance;
+    await aiServices.initialize();
+    _aiResponseSubscription = aiServices
+        .getAIResponseStream(
+      PromptUtils.buildPrompt(
+          type: PromptType.chat, age: "10", gender: "남성", kindness: 1),
+      text,
+      _messages,
+    )
+        .listen(
+      (chunk) {
+        setState(() {
+          _currentAiResponse += chunk;
+          _messages.last = Message(
+            role: 'assistant',
+            content: _currentAiResponse,
+          );
+          // messageBox.putAt(messageBox.length - 1, _messages.last);
+        });
+      },
+      onDone: () {
+        setState(() {
+          _isLoading = false;
+        });
+      },
+      onError: (error) {
+        print('AI 응답 오류: $error');
+        setState(() {
+          _isLoading = false;
+          _messages.last = Message(
+            role: 'assistant',
+            content: '죄송합니다. 응답을 생성하는 중에 오류가 발생했습니다.',
+          );
+          // messageBox.putAt(messageBox.length - 1, _messages.last);
+        });
+      },
+    );
   }
 
   Future<bool> _handleCloseRequest() async {
-    final hasChat =
-        _messages.any((m) => m.containsKey('user') || m.containsKey('ai'));
+    final hasChat = _messages.any((m) => m.role == 'user' || m.role == 'ai');
     if (hasChat) {
       final result = await showDialog<bool>(
         context: context,
@@ -150,30 +211,30 @@ class _LocDiaryChatDialogState extends State<LocDiaryChatDialog> {
                     itemCount: _messages.length,
                     itemBuilder: (context, idx) {
                       final msg = _messages[idx];
-                      if (msg.containsKey('notice')) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12.0),
-                          child: Container(
-                            width: double.infinity,
-                            padding: EdgeInsets.symmetric(
-                                vertical: 10, horizontal: 12),
-                            decoration: BoxDecoration(
-                              color: Colors.purple[50],
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              msg['notice']!,
-                              style: TextStyle(
-                                color: Colors.purple[800],
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        );
-                      }
-                      final isUser = msg.containsKey('user');
+                      // if (msg.containsKey('notice')) {
+                      //   return Padding(
+                      //     padding: const EdgeInsets.only(bottom: 12.0),
+                      //     child: Container(
+                      //       width: double.infinity,
+                      //       padding: EdgeInsets.symmetric(
+                      //           vertical: 10, horizontal: 12),
+                      //       decoration: BoxDecoration(
+                      //         color: Colors.purple[50],
+                      //         borderRadius: BorderRadius.circular(8),
+                      //       ),
+                      //       child: Text(
+                      //         msg['notice']!,
+                      //         style: TextStyle(
+                      //           color: Colors.purple[800],
+                      //           fontWeight: FontWeight.bold,
+                      //           fontSize: 14,
+                      //         ),
+                      //         textAlign: TextAlign.center,
+                      //       ),
+                      //     ),
+                      //   );
+                      // }
+                      final isUser = msg.role == 'user';
                       return Align(
                         alignment: isUser
                             ? Alignment.centerRight
@@ -203,7 +264,7 @@ class _LocDiaryChatDialogState extends State<LocDiaryChatDialog> {
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Text(
-                                  isUser ? msg['user']! : msg['ai']!,
+                                  msg.content,
                                   style: TextStyle(
                                       color: Colors.black87, fontSize: 15),
                                 ),

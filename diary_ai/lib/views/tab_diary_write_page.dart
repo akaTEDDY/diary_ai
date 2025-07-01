@@ -101,6 +101,74 @@ class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
     context.read<LocationDiaryProvider>().loadLocDiaries();
   }
 
+  void _showPhotoPreviewDialog(
+      BuildContext context, List<String> photoPaths, int initialIndex, void Function(int) onPageChanged, {required String entryId}) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        PageController controller = PageController(initialPage: initialIndex);
+        int currentIndex = initialIndex;
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: EdgeInsets.symmetric(vertical: 80, horizontal: 35),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  onPageChanged(currentIndex);
+                  Navigator.of(context).pop();
+                },
+                child: Center(
+                  child: SizedBox(
+                    child: PageView.builder(
+                      controller: controller,
+                      itemCount: photoPaths.length,
+                      onPageChanged: (idx) {
+                        setState(() {
+                          currentIndex = idx;
+                        });
+                      },
+                      itemBuilder: (context, index) {
+                        final isInitial = index == initialIndex;
+                        return GestureDetector(
+                          onTap: () {},
+                          child: isInitial
+                              ? Hero(
+                                  tag: '${entryId}_$index',
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: Image.file(
+                                      File(photoPaths[index]),
+                                      fit: BoxFit.contain,
+                                      width: double.infinity,
+                                      height: double.infinity,
+                                    ),
+                                  ),
+                                )
+                              : ClipRRect(
+                                  borderRadius: BorderRadius.circular(20),
+                                  child: Image.file(
+                                    File(photoPaths[index]),
+                                    fit: BoxFit.contain,
+                                    width: double.infinity,
+                                    height: double.infinity,
+                                  ),
+                                ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -114,6 +182,8 @@ class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
       body: Consumer<LocationDiaryProvider>(
         builder: (context, provider, child) {
           final locDiaries = provider.locDiaries;
+          final sortedLocDiaries = List.of(locDiaries)
+            ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
 
           if (locDiaries.isEmpty) {
             return Center(
@@ -167,9 +237,9 @@ class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
                       _currentPhotoIndex = 0;
                     });
                   },
-                  itemCount: locDiaries.length,
+                  itemCount: sortedLocDiaries.length,
                   itemBuilder: (context, index) {
-                    final entry = locDiaries[index];
+                    final entry = sortedLocDiaries[index];
                     return _buildDiaryCard(entry, index);
                   },
                 ),
@@ -181,7 +251,7 @@ class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: List.generate(
-                    locDiaries.length,
+                    sortedLocDiaries.length,
                     (index) => GestureDetector(
                       onTap: () {
                         _cardPageController.animateToPage(
@@ -315,12 +385,12 @@ class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
             // 스크롤 가능한 하단부
             Expanded(
               child: SingleChildScrollView(
+                padding: EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
                   children: [
                     // 시간 정보
                     Container(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: EdgeInsets.symmetric(vertical: 8),
                       child: Row(
                         children: [
                           Icon(Icons.access_time,
@@ -356,24 +426,31 @@ class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
                               },
                               itemCount: entry.photoPaths.length,
                               itemBuilder: (context, photoIndex) {
-                                return Container(
-                                  margin: EdgeInsets.symmetric(horizontal: 16),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(12),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.1),
-                                        blurRadius: 8,
-                                        offset: Offset(0, 4),
+                                return GestureDetector(
+                                  onTap: () {
+                                    _showPhotoPreviewDialog(
+                                        context,
+                                        entry.photoPaths,
+                                        photoIndex,
+                                        (lastIndex) {
+                                          if (cardIndex == _currentCardIndex) {
+                                            setState(() {
+                                              _currentPhotoIndex = lastIndex;
+                                            });
+                                          }
+                                        },
+                                        entryId: entry.id,
+                                    );
+                                  },
+                                  child: Hero(
+                                    tag: '${entry.id}_$photoIndex',
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Image.file(
+                                        File(entry.photoPaths[photoIndex]),
+                                        fit: BoxFit.cover,
+                                        width: double.infinity,
                                       ),
-                                    ],
-                                  ),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: Image.file(
-                                      File(entry.photoPaths[photoIndex]),
-                                      fit: BoxFit.cover,
-                                      width: double.infinity,
                                     ),
                                   ),
                                 );
@@ -435,26 +512,40 @@ class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
 
                     // 일기 내용
                     Container(
-                      padding: EdgeInsets.all(16),
+                      padding: EdgeInsets.symmetric(vertical: 8),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            '${entry.location.placeName}의 기록',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.black87,
-                            ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '${entry.location.placeName}의 기록',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black87,
+                                  ),
+                                  textAlign: TextAlign.left,
+                                ),
+                              ),
+                            ],
                           ),
                           SizedBox(height: 12),
-                          Text(
-                            entry.content,
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey[700],
-                              height: 1.5,
-                            ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  entry.content,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.grey[700],
+                                    height: 1.5,
+                                  ),
+                                  textAlign: TextAlign.left,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),

@@ -3,8 +3,10 @@ import 'dart:convert';
 import 'package:common_utils_services/services/notification_service.dart';
 import 'package:common_utils_services/utils/location_utils.dart';
 import 'package:common_utils_services/models/location_history.dart';
+import 'package:diary_ai/provider/location_history_update_provider.dart';
 import 'package:diary_ai/utils/permission_utils.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'tab_diary_list_page.dart';
 import 'tab_diary_write_page.dart';
 import 'tab_location_history_page.dart';
@@ -38,6 +40,9 @@ class _MainPageState extends State<MainPage> {
     await _notificationService.initialize();
     await _locationHistoryManager.initialize(50, (location) {
       try {
+        // 위치가 업데이트 되었다는 걸 위치 히스토리 탭에 알려줌
+        Provider.of<LocationHistoryUpdateProvider>(context, listen: false).setUpdated(true);
+        
         final Map<String, dynamic> curLocation = json.decode(location);
         LocationHistory locationHistory = LocationHistory.fromJson(curLocation);
 
@@ -65,8 +70,10 @@ class _MainPageState extends State<MainPage> {
             title += "(${locationHistory.place!["tags"]})";
           }
 
-          _notificationService.showNotification(
-              title: title, body: locationHistory.simpleName);
+          if (title.isNotEmpty) {
+            _notificationService.showNotification(
+                title: title, body: locationHistory.simpleName);
+          }
         }
       } catch (e) {
         print(e.toString());

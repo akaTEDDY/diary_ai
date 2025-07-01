@@ -7,6 +7,7 @@ import 'models/diary_entry.dart';
 import 'views/main_page.dart';
 import 'package:provider/provider.dart';
 import 'provider/diary_provider.dart';
+import 'provider/location_history_update_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,8 +19,9 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => LocationDiaryProvider()),
         ChangeNotifierProvider(create: (_) => DiaryProvider()),
+        ChangeNotifierProvider(create: (_) => LocationDiaryProvider()),
+        ChangeNotifierProvider(create: (_) => LocationHistoryUpdateProvider()),
       ],
       child: MyApp(),
     ),

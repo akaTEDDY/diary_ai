@@ -2,7 +2,7 @@ name: diary_ai
 
 description: AI 일기장 앱
 
-publish_to: 'none'
+publish_to: "none"
 
 version: 1.0.0+1
 
@@ -38,6 +38,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - .env
 
 flutter_launcher_icons:
   android: "launcher_icon"
