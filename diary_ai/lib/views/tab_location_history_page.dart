@@ -7,6 +7,10 @@ import 'package:provider/provider.dart';
 import 'loc_diary_write_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
+import 'package:diary_ai/services/loc_diary_service.dart';
+import '../models/loc_diary_entry.dart';
+import '../services/diary_service.dart';
+import '../models/diary_entry.dart';
 
 class TabLocationHistoryPage extends StatefulWidget {
   final LocationHistoryManager _locationHistoryManager;
@@ -21,6 +25,8 @@ class TabLocationHistoryPage extends StatefulWidget {
 class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
   bool _isLoading = true;
   List<LocationHistory> _locationHistory = [];
+  List<LocDiaryEntry> _todayLocDiaries = [];
+  List<DiaryEntry> _todayDiaries = [];
   final platform = MethodChannel('plengi.ai/fromFlutter');
 
   @override
@@ -52,10 +58,19 @@ class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
           currentHistory = widget._locationHistoryManager.locationHistory;
         }
       }
+      // 오늘의 위치 일기 불러오기
+      final todayLocDiaries = await LocDiaryService().getLocDiariesForToday();
+      // 오늘의 DiaryEntry(병합된 위치 포함) 불러오기
+      final diariesGrouped =
+          await DiaryService().getAllDiariesGroupedByDateTime();
+      final todayDiaries = LocDiaryService.getTodayLocDiaries(diariesGrouped);
+
       if (mounted) {
         setState(() {
           _locationHistory = List.from(currentHistory)
             ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+          _todayLocDiaries = todayLocDiaries;
+          _todayDiaries = todayDiaries;
           _isLoading = false;
         });
       }
@@ -233,6 +248,23 @@ class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
                                   color: Colors.purple, size: 28),
                             );
                           }
+
+                          // 일기 작성 여부 확인 (위치 일기 or 병합된 일기)
+                          final bool hasDiary =
+                              LocDiaryService.findLocationDiaryByDisplayName(
+                                        location.displayName,
+                                        _todayLocDiaries,
+                                      ) !=
+                                      null ||
+                                  LocDiaryService
+                                      .isLocationDisplayNameAlreadyInTodayDiary(
+                                    location.displayName,
+                                    _todayDiaries,
+                                  );
+                          final Color cardColor = hasDiary
+                              ? Colors.purple[50]!.withOpacity(0.5)
+                              : Colors.white;
+
                           return Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -265,7 +297,7 @@ class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
                                     if (idx != entries.length - 1)
                                       Container(
                                         width: 4,
-                                        height: 60,
+                                        height: 92, // 기존 60 + margin만큼 늘림
                                         color: Colors.purple[100],
                                       ),
                                   ],
@@ -290,7 +322,7 @@ class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
                                     padding: EdgeInsets.symmetric(
                                         horizontal: 20, vertical: 18),
                                     decoration: BoxDecoration(
-                                      color: Colors.white,
+                                      color: cardColor,
                                       borderRadius: BorderRadius.circular(18),
                                       boxShadow: [
                                         BoxShadow(

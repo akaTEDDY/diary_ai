@@ -52,33 +52,33 @@ class _LocDiaryWritePageState extends State<LocDiaryWritePage> {
   }
 
   Future<void> _checkIfMergedToTodayDiary() async {
-    // final diaries = await DiaryService().getAllDiariesGroupedByDateTime();
-    // final todayDiaries = LocDiaryService.getTodayLocDiaries(diaries);
-    // final isAlreadyMerged =
-    //     LocDiaryService.isLocationDisplayNameAlreadyInTodayDiary(
-    //   widget.location.displayName,
-    //   todayDiaries,
-    // );
-    // if (isAlreadyMerged && mounted) {
-    //   await Future.delayed(Duration.zero);
-    //   showDialog(
-    //     context: context,
-    //     builder: (context) => AlertDialog(
-    //       title: Text('수정 불가'),
-    //       content: Text('이 위치의 위치 일기는 오늘의 일기에 병합되어 더 이상 수정할 수 없습니다.'),
-    //       actions: [
-    //         TextButton(
-    //           onPressed: () {
-    //             Navigator.of(context).pop();
-    //           },
-    //           child: Text('확인'),
-    //         ),
-    //       ],
-    //     ),
-    //   );
-    // } else {
-    _loadExistingLocDiary();
-    // }
+    final diaries = await DiaryService().getAllDiariesGroupedByDateTime();
+    final todayDiaries = LocDiaryService.getTodayLocDiaries(diaries);
+    final isAlreadyMerged =
+        LocDiaryService.isLocationDisplayNameAlreadyInTodayDiary(
+      widget.location.displayName,
+      todayDiaries,
+    );
+    if (isAlreadyMerged && mounted) {
+      await Future.delayed(Duration.zero);
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('수정 불가'),
+          content: Text('이 위치의 위치 일기는 오늘의 일기에 병합되어 더 이상 수정할 수 없습니다.'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text('확인'),
+            ),
+          ],
+        ),
+      );
+    } else {
+      _loadExistingLocDiary();
+    }
   }
 
   Future<void> _loadExistingLocDiary() async {
@@ -428,7 +428,7 @@ class _LocDiaryWritePageState extends State<LocDiaryWritePage> {
                         builder: (context) => LocDiaryChatDialog(
                           photoPaths:
                               _selectedImages.map((f) => f.path).toList(),
-                          locationName: widget.location.simpleName,
+                          location: widget.location,
                         ),
                       );
                     },

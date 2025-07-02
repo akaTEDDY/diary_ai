@@ -6,6 +6,8 @@ import 'package:collection/collection.dart';
 import '../models/loc_diary_entry.dart';
 import '../models/diary_entry.dart';
 import 'package:provider/provider.dart';
+import 'dart:convert';
+import 'package:common_utils_services/models/location_history.dart';
 
 class LocDiaryService {
   static const String boxName = 'location_diary_entries';

@@ -8,6 +8,7 @@ import 'views/main_page.dart';
 import 'package:provider/provider.dart';
 import 'provider/diary_provider.dart';
 import 'provider/location_history_update_provider.dart';
+import 'provider/character_preset_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,6 +23,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => DiaryProvider()),
         ChangeNotifierProvider(create: (_) => LocationDiaryProvider()),
         ChangeNotifierProvider(create: (_) => LocationHistoryUpdateProvider()),
+        ChangeNotifierProvider(create: (_) => CharacterPresetProvider()),
       ],
       child: MyApp(),
     ),

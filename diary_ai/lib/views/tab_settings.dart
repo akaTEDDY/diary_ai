@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../provider/character_preset_provider.dart';
 
 class TabSettingsPage extends StatefulWidget {
   const TabSettingsPage({Key? key}) : super(key: key);
@@ -40,6 +42,17 @@ class _TabSettingsPageState extends State<TabSettingsPage> {
       setState(() {
         _selectedPreset = value;
       });
+      // Provider에 반영
+      final presetMap = characterPresets[value]!;
+      final preset = CharacterPreset(
+        id: presetMap['id'],
+        name: presetMap['name'],
+        age: presetMap['age'],
+        gender: presetMap['gender'],
+        kindnessLevel: presetMap['kindnessLevel'],
+      );
+      Provider.of<CharacterPresetProvider>(context, listen: false)
+          .setPreset(preset);
     }
   }
 

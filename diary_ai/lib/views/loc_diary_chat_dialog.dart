@@ -4,17 +4,17 @@ import 'package:common_utils_services/models/message.dart';
 import 'package:common_utils_services/services/ai_services.dart';
 import 'package:diary_ai/utils/prompt_utils.dart';
 import 'package:flutter/material.dart';
-import 'package:hive/hive.dart';
+import 'package:common_utils_services/models/location_history.dart';
+import 'package:provider/provider.dart';
+import '../provider/character_preset_provider.dart';
 
 class LocDiaryChatDialog extends StatefulWidget {
   final List<String> photoPaths;
-  final String locationName;
-  final String? initialPrompt;
+  final LocationHistory location;
   const LocDiaryChatDialog({
     Key? key,
     required this.photoPaths,
-    required this.locationName,
-    this.initialPrompt,
+    required this.location,
   }) : super(key: key);
 
   @override
@@ -53,18 +53,55 @@ class _LocDiaryChatDialogState extends State<LocDiaryChatDialog> {
   //     content: '오늘도 출근하느라 고생했어! 오늘도 내일도 화이팅!'),
   // ];
 
-  // late Box<Message> messageBox;
   bool _isLoading = false;
+  int _chatCount = 0;
+  String? _diarySummary;
 
   @override
   void initState() {
     super.initState();
-    Future.microtask(() async {
-      // messageBox = await Hive.openBox<Message>('messages');
+    _requestFirstGreeting();
+  }
+
+  void _requestFirstGreeting() async {
+    setState(() => _isLoading = true);
+    final aiServices = AIServices.instance;
+    await aiServices.initialize();
+    _currentAiResponse = '';
+    final preset = Provider.of<CharacterPresetProvider>(context, listen: false)
+        .selectedPreset;
+    _aiResponseSubscription = aiServices
+        .getAIResponseStream(
+      PromptUtils.buildPrompt(
+        type: PromptType.firstGreeting,
+        age: preset.age.toString(),
+        gender: preset.gender,
+        kindness: preset.kindnessLevel,
+        locationName: widget.location.placeName,
+        photoList: widget.photoPaths,
+      ),
+      '내 위치랑 사진보고 일기 작성 도와줘',
+      List.empty(),
+    )
+        .listen((chunk) {
+      setState(() {
+        _currentAiResponse += chunk;
+        // 첫 메시지는 AI가 먼저
+        if (_messages.isEmpty || _messages.last.role != 'assistant') {
+          _messages
+              .add(Message(role: 'assistant', content: _currentAiResponse));
+        } else {
+          _messages[_messages.length - 1] =
+              Message(role: 'assistant', content: _currentAiResponse);
+        }
+      });
+    }, onDone: () {
+      setState(() => _isLoading = false);
     });
   }
 
   void _sendMessage() async {
+    if (_chatCount >= 4) return;
     final text = _controller.text.trim();
     if (text.isEmpty) return;
     setState(() {
@@ -72,50 +109,63 @@ class _LocDiaryChatDialogState extends State<LocDiaryChatDialog> {
       _controller.clear();
       _isLoading = true;
     });
-
     _currentAiResponse = '';
-
     final aiServices = AIServices.instance;
     await aiServices.initialize();
+    final preset = Provider.of<CharacterPresetProvider>(context, listen: false)
+        .selectedPreset;
+    PromptType type;
+    if (_chatCount <= 2) {
+      type = PromptType.chat;
+    } else if (_chatCount == 3) {
+      type = PromptType.diaryComplete;
+    } else {
+      return;
+    }
+
+    // AI 응답 메시지는 항상 user 메시지 뒤에 새로 추가
     _aiResponseSubscription = aiServices
         .getAIResponseStream(
       PromptUtils.buildPrompt(
-          type: PromptType.chat, age: "10", gender: "남성", kindness: 1),
+        type: type,
+        age: preset.age.toString(),
+        gender: preset.gender,
+        kindness: preset.kindnessLevel,
+        locationName: widget.location.placeName,
+        photoList: widget.photoPaths,
+        chatHistory: _messages
+            .map((m) => {'role': m.role, 'content': m.content})
+            .toList(),
+      ),
       text,
       _messages,
     )
-        .listen(
-      (chunk) {
-        setState(() {
-          _currentAiResponse += chunk;
-          _messages.last = Message(
-            role: 'assistant',
-            content: _currentAiResponse,
-          );
-          // messageBox.putAt(messageBox.length - 1, _messages.last);
-        });
-      },
-      onDone: () {
-        setState(() {
-          _isLoading = false;
-        });
-      },
-      onError: (error) {
-        print('AI 응답 오류: $error');
-        setState(() {
-          _isLoading = false;
-          _messages.last = Message(
-            role: 'assistant',
-            content: '죄송합니다. 응답을 생성하는 중에 오류가 발생했습니다.',
-          );
-          // messageBox.putAt(messageBox.length - 1, _messages.last);
-        });
-      },
-    );
+        .listen((chunk) {
+      setState(() {
+        _currentAiResponse += chunk;
+        // 마지막 메시지가 assistant가 아니면 새로 추가
+        if (_messages.isEmpty || _messages.last.role != 'assistant') {
+          _messages
+              .add(Message(role: 'assistant', content: _currentAiResponse));
+        } else {
+          _messages[_messages.length - 1] =
+              Message(role: 'assistant', content: _currentAiResponse);
+        }
+      });
+    }, onDone: () {
+      setState(() {
+        _isLoading = false;
+        _chatCount++;
+        if (type == PromptType.diaryComplete) {
+          _diarySummary = _currentAiResponse;
+        }
+      });
+    });
   }
 
   Future<bool> _handleCloseRequest() async {
-    final hasChat = _messages.any((m) => m.role == 'user' || m.role == 'ai');
+    final hasChat =
+        _messages.any((m) => m.role == 'user' || m.role == 'assistant');
     if (hasChat) {
       final result = await showDialog<bool>(
         context: context,
@@ -173,7 +223,8 @@ class _LocDiaryChatDialogState extends State<LocDiaryChatDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.locationName,
+                          widget.location.place?['name'] ??
+                              widget.location.placeName,
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 20,
@@ -211,29 +262,6 @@ class _LocDiaryChatDialogState extends State<LocDiaryChatDialog> {
                     itemCount: _messages.length,
                     itemBuilder: (context, idx) {
                       final msg = _messages[idx];
-                      // if (msg.containsKey('notice')) {
-                      //   return Padding(
-                      //     padding: const EdgeInsets.only(bottom: 12.0),
-                      //     child: Container(
-                      //       width: double.infinity,
-                      //       padding: EdgeInsets.symmetric(
-                      //           vertical: 10, horizontal: 12),
-                      //       decoration: BoxDecoration(
-                      //         color: Colors.purple[50],
-                      //         borderRadius: BorderRadius.circular(8),
-                      //       ),
-                      //       child: Text(
-                      //         msg['notice']!,
-                      //         style: TextStyle(
-                      //           color: Colors.purple[800],
-                      //           fontWeight: FontWeight.bold,
-                      //           fontSize: 14,
-                      //         ),
-                      //         textAlign: TextAlign.center,
-                      //       ),
-                      //     ),
-                      //   );
-                      // }
                       final isUser = msg.role == 'user';
                       return Align(
                         alignment: isUser
@@ -310,10 +338,21 @@ class _LocDiaryChatDialogState extends State<LocDiaryChatDialog> {
                   SizedBox(width: 8),
                   IconButton(
                     icon: Icon(Icons.send, color: Colors.purple),
-                    onPressed: _isLoading ? null : _sendMessage,
+                    onPressed:
+                        _isLoading || _chatCount >= 4 ? null : _sendMessage,
                   ),
                 ],
               ),
+              if (_diarySummary != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 16.0),
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context, _diarySummary);
+                    },
+                    child: Text('대화 내용으로 일기 작성하기'),
+                  ),
+                ),
             ],
           ),
         ),

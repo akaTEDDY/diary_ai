@@ -8,6 +8,7 @@ import '../services/diary_service.dart';
 import 'package:uuid/uuid.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:hive/hive.dart';
 
 class TabDiaryWritePage extends StatefulWidget {
   const TabDiaryWritePage({Key? key}) : super(key: key);
@@ -56,23 +57,35 @@ class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
     if (selected.isEmpty) return;
 
     final now = DateTime.now();
-    final dateTimeStr = DateFormat('yyyy-MM-dd HH:mm').format(now);
-
-    // 선택된 위치 일기들의 내용을 합치기
-    final content = selected.map((e) => e.content).join('\n\n');
-
-    final diaryEntry = DiaryEntry(
-      id: Uuid().v4(),
-      content: content,
-      dateTime: dateTimeStr,
-      createdAt: now,
-      locationDiaries: selected, // 선택된 위치 일기들을 모두 포함
-    );
-
+    final todayKey = DateFormat('yyyy-MM-dd').format(now);
     try {
-      await DiaryService().addDiary(context, diaryEntry);
+      final box = await Hive.openBox<List>(DiaryService.boxName);
+      // 오늘 일기 찾기 (createdAt 날짜 기준)
+      List<DiaryEntry> todayEntries =
+          (box.get(todayKey)?.cast<DiaryEntry>()) ?? [];
+      DiaryEntry? todayDiary =
+          todayEntries.isNotEmpty ? todayEntries.first : null;
 
-      // 선택된 위치 일기들 삭제
+      if (todayDiary != null) {
+        // 기존 위치 일기와 중복 없이 병합
+        final existingIds = todayDiary.locationDiaries.map((e) => e.id).toSet();
+        final newLocDiaries = [
+          ...todayDiary.locationDiaries,
+          ...selected.where((e) => !existingIds.contains(e.id)),
+        ];
+        todayDiary.locationDiaries = newLocDiaries;
+        await todayDiary.save();
+      } else {
+        // 오늘 일기가 없으면 새로 생성
+        final diaryEntry = DiaryEntry(
+          id: Uuid().v4(),
+          createdAt: now,
+          locationDiaries: selected,
+        );
+        await box.put(todayKey, [diaryEntry]);
+      }
+
+      // 선택된 위치 일기 삭제
       for (final e in selected) {
         await LocDiaryService().deleteLocDiary(context, e.id);
       }
@@ -101,8 +114,9 @@ class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
     context.read<LocationDiaryProvider>().loadLocDiaries();
   }
 
-  void _showPhotoPreviewDialog(
-      BuildContext context, List<String> photoPaths, int initialIndex, void Function(int) onPageChanged, {required String entryId}) {
+  void _showPhotoPreviewDialog(BuildContext context, List<String> photoPaths,
+      int initialIndex, void Function(int) onPageChanged,
+      {required String entryId}) {
     showDialog(
       context: context,
       builder: (context) {
@@ -168,7 +182,6 @@ class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
     );
   }
 
-  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -403,6 +416,14 @@ class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
                               fontSize: 14,
                             ),
                           ),
+                          // mood 이모지 표시
+                          if (entry.mood != null && entry.mood!.isNotEmpty) ...[
+                            SizedBox(width: 8),
+                            Text(
+                              entry.mood!,
+                              style: TextStyle(fontSize: 18),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -429,17 +450,17 @@ class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
                                 return GestureDetector(
                                   onTap: () {
                                     _showPhotoPreviewDialog(
-                                        context,
-                                        entry.photoPaths,
-                                        photoIndex,
-                                        (lastIndex) {
-                                          if (cardIndex == _currentCardIndex) {
-                                            setState(() {
-                                              _currentPhotoIndex = lastIndex;
-                                            });
-                                          }
-                                        },
-                                        entryId: entry.id,
+                                      context,
+                                      entry.photoPaths,
+                                      photoIndex,
+                                      (lastIndex) {
+                                        if (cardIndex == _currentCardIndex) {
+                                          setState(() {
+                                            _currentPhotoIndex = lastIndex;
+                                          });
+                                        }
+                                      },
+                                      entryId: entry.id,
                                     );
                                   },
                                   child: Hero(
@@ -516,21 +537,6 @@ class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  '${entry.location.placeName}의 기록',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.black87,
-                                  ),
-                                  textAlign: TextAlign.left,
-                                ),
-                              ),
-                            ],
-                          ),
                           SizedBox(height: 12),
                           Row(
                             children: [
