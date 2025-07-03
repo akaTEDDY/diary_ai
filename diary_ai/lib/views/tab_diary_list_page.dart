@@ -303,12 +303,17 @@ class _TabDiaryListPageState extends State<TabDiaryListPage> {
                                 padding: EdgeInsets.symmetric(
                                     horizontal: 12, vertical: 10),
                                 child: ListView.separated(
+                                  // 최신 방문 순서로 정렬
                                   itemCount: entry.first.locationDiaries.length,
                                   separatorBuilder: (_, __) =>
                                       SizedBox(height: 10),
                                   itemBuilder: (context, entryIdx) {
-                                    final locDiary =
-                                        entry.first.locationDiaries[entryIdx];
+                                    final sortedLocDiaries =
+                                        List<LocDiaryEntry>.from(
+                                            entry.first.locationDiaries)
+                                          ..sort((a, b) => b.createdAt
+                                              .compareTo(a.createdAt));
+                                    final locDiary = sortedLocDiaries[entryIdx];
                                     final location = locDiary.location;
                                     final place = (location as dynamic).place
                                         as Map<String, dynamic>?;

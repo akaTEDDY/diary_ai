@@ -1,3 +1,4 @@
+import 'package:diary_ai/provider/diary_provider.dart';
 import 'package:diary_ai/provider/location_diary_provider.dart';
 import 'package:flutter/material.dart';
 import 'dart:io';
@@ -94,7 +95,8 @@ class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
         _selectedIds.clear();
       });
 
-      await provider.loadLocDiaries();
+      await provider.loadLocDiaries(); // 위치 일기 provider 갱신
+      context.read<DiaryProvider>().loadDiaries(); // 일기 provider 갱신
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('오늘의 일기가 저장되었습니다.')),
