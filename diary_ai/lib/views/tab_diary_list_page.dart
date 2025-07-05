@@ -27,22 +27,31 @@ class _TabDiaryListPageState extends State<TabDiaryListPage> {
     });
   }
 
-  List<DiaryEntry> _getDiaryForDay(BuildContext context, DateTime day) {
+  DiaryEntry? _getDiaryForDayEntry(BuildContext context, DateTime day) {
     final diaryProvider = context.watch<DiaryProvider>();
     final grouped = diaryProvider.groupedByDate;
     final key = DateFormat('yyyy-MM-dd').format(day);
-    return grouped[key] ?? [];
+    return grouped[key];
   }
 
-  Map<String, List<DiaryEntry>> _getGroupedDiaries(BuildContext context) {
+  Map<String, DiaryEntry> _getGroupedDiaries(BuildContext context) {
     final diaryProvider = context.watch<DiaryProvider>();
     return diaryProvider.groupedByDate;
   }
 
-  List<String> _getSortedDates(Map<String, List<DiaryEntry>> grouped) {
+  List<String> _getSortedDates(Map<String, DiaryEntry> grouped) {
     final keys = grouped.keys.toList();
     keys.sort((a, b) => b.compareTo(a));
     return keys;
+  }
+
+  List<DiaryEntry> _getDiaryForDay(BuildContext context, DateTime day) {
+    final entry = _getDiaryForDayEntry(context, day);
+    if (entry != null) {
+      return [entry];
+    } else {
+      return [];
+    }
   }
 
   void _showDiaryDetail(LocDiaryEntry entry) {
@@ -304,13 +313,13 @@ class _TabDiaryListPageState extends State<TabDiaryListPage> {
                                     horizontal: 12, vertical: 10),
                                 child: ListView.separated(
                                   // 최신 방문 순서로 정렬
-                                  itemCount: entry.first.locationDiaries.length,
+                                  itemCount: entry.locationDiaries.length,
                                   separatorBuilder: (_, __) =>
                                       SizedBox(height: 10),
                                   itemBuilder: (context, entryIdx) {
                                     final sortedLocDiaries =
                                         List<LocDiaryEntry>.from(
-                                            entry.first.locationDiaries)
+                                            entry.locationDiaries)
                                           ..sort((a, b) => b.createdAt
                                               .compareTo(a.createdAt));
                                     final locDiary = sortedLocDiaries[entryIdx];

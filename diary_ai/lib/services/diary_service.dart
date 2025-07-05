@@ -9,51 +9,47 @@ class DiaryService {
   static const String boxName = 'diary_entries';
 
   Future<void> addDiary(BuildContext context, DiaryEntry entry) async {
-    var box = await Hive.openBox<List>(boxName);
+    var box = await Hive.openBox<DiaryEntry>(boxName);
     final dateTimeKey = entry.dateTime;
-    List<DiaryEntry> diaries = (box.get(dateTimeKey)?.cast<DiaryEntry>()) ?? [];
-    diaries.add(entry);
-    await box.put(dateTimeKey, diaries);
+    await box.put(dateTimeKey, entry);
     await context.read<DiaryProvider>().addDiary(entry);
   }
 
   Future<void> deleteDiary(
       BuildContext context, String dateTime, String id) async {
-    var box = await Hive.openBox<List>(boxName);
-    List<DiaryEntry> diaries = (box.get(dateTime)?.cast<DiaryEntry>()) ?? [];
-    diaries.removeWhere((e) => e.id == id);
-    await box.put(dateTime, diaries);
+    var box = await Hive.openBox<DiaryEntry>(boxName);
+    await box.delete(dateTime);
     await context.read<DiaryProvider>().deleteDiary(id);
   }
 
-  Future<List<DiaryEntry>> getDiariesByDateTime(String dateTime) async {
-    var box = await Hive.openBox<List>(boxName);
-    return (box.get(dateTime)?.cast<DiaryEntry>()) ?? [];
+  Future<DiaryEntry?> getDiaryByDateTime(String dateTime) async {
+    var box = await Hive.openBox<DiaryEntry>(boxName);
+    return box.get(dateTime);
   }
 
-  Future<Map<String, List<DiaryEntry>>> getAllDiariesGroupedByDateTime() async {
-    var box = await Hive.openBox<List>(boxName);
-    Map<String, List<DiaryEntry>> result = {};
+  Future<Map<String, DiaryEntry>> getAllDiariesGroupedByDateTime() async {
+    var box = await Hive.openBox<DiaryEntry>(boxName);
+    Map<String, DiaryEntry> result = {};
     for (var key in box.keys) {
-      result[key] = (box.get(key)?.cast<DiaryEntry>()) ?? [];
+      final entry = box.get(key);
+      if (entry != null) result[key] = entry;
     }
     return result;
   }
 
   Future<void> addDiaryDirect(DiaryEntry entry) async {
-    var box = await Hive.openBox<List>(boxName);
+    var box = await Hive.openBox<DiaryEntry>(boxName);
     final dateTimeKey = entry.dateTime;
-    List<DiaryEntry> diaries = (box.get(dateTimeKey)?.cast<DiaryEntry>()) ?? [];
-    diaries.add(entry);
-    await box.put(dateTimeKey, diaries);
+    await box.put(dateTimeKey, entry);
   }
 
   Future<void> deleteDiaryDirect(String id) async {
-    var box = await Hive.openBox<List>(boxName);
+    var box = await Hive.openBox<DiaryEntry>(boxName);
     for (var key in box.keys) {
-      List<DiaryEntry> diaries = (box.get(key)?.cast<DiaryEntry>()) ?? [];
-      diaries.removeWhere((e) => e.id == id);
-      await box.put(key, diaries);
+      final entry = box.get(key);
+      if (entry != null && entry.id == id) {
+        await box.delete(key);
+      }
     }
   }
 

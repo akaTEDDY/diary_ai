@@ -26,7 +26,7 @@ class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
   bool _isLoading = true;
   List<LocationHistory> _locationHistory = [];
   List<LocDiaryEntry> _todayLocDiaries = [];
-  List<DiaryEntry> _todayDiaries = [];
+  DiaryEntry? _todayDiary;
   final platform = MethodChannel('plengi.ai/fromFlutter');
 
   @override
@@ -60,17 +60,17 @@ class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
       }
       // 오늘의 위치 일기 불러오기
       final todayLocDiaries = await LocDiaryService().getLocDiariesForToday();
-      // 오늘의 DiaryEntry(병합된 위치 포함) 불러오기
+      // 오늘의 일기 불러오기
       final diariesGrouped =
           await DiaryService().getAllDiariesGroupedByDateTime();
-      final todayDiaries = LocDiaryService.getTodayLocDiaries(diariesGrouped);
+      final todayDiary = LocDiaryService.getTodayDiary(diariesGrouped);
 
       if (mounted) {
         setState(() {
           _locationHistory = List.from(currentHistory)
             ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
           _todayLocDiaries = todayLocDiaries;
-          _todayDiaries = todayDiaries;
+          _todayDiary = todayDiary;
           _isLoading = false;
         });
       }
@@ -259,7 +259,7 @@ class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
                                   LocDiaryService
                                       .isLocationDisplayNameAlreadyInTodayDiary(
                                     location.displayName,
-                                    _todayDiaries,
+                                    _todayDiary,
                                   );
                           final Color cardColor = hasDiary
                               ? Colors.purple[50]!.withOpacity(0.5)

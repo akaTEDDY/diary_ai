@@ -57,40 +57,42 @@ class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
         provider.locDiaries.where((e) => _selectedIds.contains(e.id)).toList();
     if (selected.isEmpty) return;
 
-    final now = DateTime.now();
-    final todayKey = DateFormat('yyyy-MM-dd').format(now);
     try {
-      final box = await Hive.openBox<List>(DiaryService.boxName);
-      // 오늘 일기 찾기 (createdAt 날짜 기준)
-      List<DiaryEntry> todayEntries =
-          (box.get(todayKey)?.cast<DiaryEntry>()) ?? [];
-      DiaryEntry? todayDiary =
-          todayEntries.isNotEmpty ? todayEntries.first : null;
-
-      if (todayDiary != null) {
-        // 기존 위치 일기와 중복 없이 병합
-        final existingIds = todayDiary.locationDiaries.map((e) => e.id).toSet();
-        final newLocDiaries = [
-          ...todayDiary.locationDiaries,
-          ...selected.where((e) => !existingIds.contains(e.id)),
-        ];
-        todayDiary.locationDiaries = newLocDiaries;
-        await todayDiary.save();
-      } else {
-        // 오늘 일기가 없으면 새로 생성
-        final diaryEntry = DiaryEntry(
-          id: Uuid().v4(),
-          createdAt: now,
-          locationDiaries: selected,
-        );
-        await box.put(todayKey, [diaryEntry]);
+      final box = await Hive.openBox<DiaryEntry>(DiaryService.boxName);
+      // 1. 선택된 위치 일기들을 날짜별로 그룹화
+      final Map<String, List<LocDiaryEntry>> groupedByDate = {};
+      for (final locDiary in selected) {
+        // 방문일자 기준으로 그룹화
+        final dateKey =
+            DateFormat('yyyy-MM-dd').format(locDiary.location.timestamp);
+        groupedByDate.putIfAbsent(dateKey, () => []).add(locDiary);
       }
-
-      // 선택된 위치 일기 삭제
+      // 2. 각 날짜별로 일기 생성/병합
+      for (final entry in groupedByDate.entries) {
+        final dateKey = entry.key;
+        final locDiariesForDate = entry.value;
+        DiaryEntry? diary = box.get(dateKey) as DiaryEntry?;
+        if (diary != null) {
+          final existingIds = diary.locationDiaries.map((e) => e.id).toSet();
+          final newLocDiaries = [
+            ...diary.locationDiaries,
+            ...locDiariesForDate.where((e) => !existingIds.contains(e.id)),
+          ];
+          diary.locationDiaries = newLocDiaries;
+          await diary.save();
+        } else {
+          final diaryEntry = DiaryEntry(
+            id: Uuid().v4(),
+            createdAt: DateTime.parse(dateKey),
+            locationDiaries: locDiariesForDate,
+          );
+          await box.put(dateKey, diaryEntry);
+        }
+      }
+      // 3. 선택된 위치 일기 삭제
       for (final e in selected) {
         await LocDiaryService().deleteLocDiary(context, e.id);
       }
-
       setState(() {
         _selectedIds.clear();
       });
@@ -99,7 +101,7 @@ class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
       context.read<DiaryProvider>().loadDiaries(); // 일기 provider 갱신
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('오늘의 일기가 저장되었습니다.')),
+        SnackBar(content: Text('일기가 저장되었습니다.')),
       );
     } catch (e) {
       print('일기 저장 실패: $e');
@@ -362,14 +364,29 @@ class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
                         Icon(Icons.location_on, color: Colors.white, size: 20),
                         SizedBox(width: 8),
                         Expanded(
-                          child: Text(
-                            entry.location.simpleName,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            overflow: TextOverflow.ellipsis,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                entry.location.simpleName,
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                // 방문 날짜/시간 표시
+                                DateFormat('yyyy년 M월 d일 (E) HH:mm', 'ko_KR')
+                                    .format(entry.location.timestamp),
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.85),
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -403,7 +420,7 @@ class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
                 padding: EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
                   children: [
-                    // 시간 정보
+                    // 시간 정보(작성 시간) - 카드 내용부
                     Container(
                       padding: EdgeInsets.symmetric(vertical: 8),
                       child: Row(
@@ -412,7 +429,9 @@ class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
                               color: Colors.grey[600], size: 16),
                           SizedBox(width: 4),
                           Text(
-                            LocDiaryService.formatTime(entry.createdAt),
+                            '작성: ' +
+                                DateFormat('yyyy년 M월 d일 (E) HH:mm', 'ko_KR')
+                                    .format(entry.createdAt),
                             style: TextStyle(
                               color: Colors.grey[600],
                               fontSize: 14,

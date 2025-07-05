@@ -9,9 +9,12 @@ import 'package:provider/provider.dart';
 import 'provider/diary_provider.dart';
 import 'provider/location_history_update_provider.dart';
 import 'provider/character_preset_provider.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'provider/user_profile_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('ko_KR', null);
   await Hive.initFlutter();
   Hive.registerAdapter(DiaryEntryAdapter());
   Hive.registerAdapter(LocDiaryEntryAdapter());
@@ -24,6 +27,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => LocationDiaryProvider()),
         ChangeNotifierProvider(create: (_) => LocationHistoryUpdateProvider()),
         ChangeNotifierProvider(create: (_) => CharacterPresetProvider()),
+        ChangeNotifierProvider(create: (_) => UserProfileProvider()),
       ],
       child: MyApp(),
     ),

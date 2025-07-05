@@ -6,8 +6,6 @@ import 'package:collection/collection.dart';
 import '../models/loc_diary_entry.dart';
 import '../models/diary_entry.dart';
 import 'package:provider/provider.dart';
-import 'dart:convert';
-import 'package:common_utils_services/models/location_history.dart';
 
 class LocDiaryService {
   static const String boxName = 'location_diary_entries';
@@ -47,15 +45,10 @@ class LocDiaryService {
   /// 특정 위치가 오늘의 일기에 이미 포함되어 있는지 확인 (displayName 기반)
   static bool isLocationDisplayNameAlreadyInTodayDiary(
     String displayName,
-    List<DiaryEntry> todayDiaries,
+    DiaryEntry? todayDiary,
   ) {
-    for (final diary in todayDiaries) {
-      if (diary.locationDiaries
-          .any((locDiary) => locDiary.location.displayName == displayName)) {
-        return true;
-      }
-    }
-    return false;
+    if (todayDiary == null) return false;
+    return todayDiary.locationDiaries.any((locDiary) => locDiary.location.displayName == displayName);
   }
 
   /// 위치 일기 목록에서 특정 displayName의 일기를 찾기
@@ -68,14 +61,9 @@ class LocDiaryService {
     );
   }
 
-  /// 그룹화된 일기 맵에서 오늘 날짜의 일기 리스트만 추출
-  static List<DiaryEntry> getTodayLocDiaries(
-      Map<String, List<DiaryEntry>> groupedDiaries) {
-    final today = DateTime.now();
-    final todayKey = DateFormat('yyyy-MM-dd').format(today);
-    return groupedDiaries.entries
-        .where((e) => e.key.startsWith(todayKey))
-        .expand((e) => e.value)
-        .toList();
+  /// 그룹화된 일기 맵에서 오늘 날짜의 일기만 추출
+  static DiaryEntry? getTodayDiary(Map<String, DiaryEntry> groupedDiaries) {
+    final todayKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    return groupedDiaries[todayKey];
   }
 }
