@@ -218,8 +218,6 @@ class _TabSettingsPageState extends State<TabSettingsPage> {
         _feedbackReminderEnabled != _initialFeedbackReminderEnabled;
   }
 
-  String? _feedbackTimeError;
-
   @override
   void initState() {
     super.initState();

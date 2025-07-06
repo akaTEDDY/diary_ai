@@ -7,7 +7,6 @@ import '../services/loc_diary_service.dart';
 import 'package:uuid/uuid.dart';
 import '../services/diary_service.dart';
 import 'package:intl/intl.dart';
-import 'loc_diary_chat_dialog.dart';
 
 extension FirstWhereOrNullExtension<E> on Iterable<E> {
   E? firstWhereOrNull(bool Function(E) test) {

@@ -71,7 +71,7 @@ class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
       for (final entry in groupedByDate.entries) {
         final dateKey = entry.key;
         final locDiariesForDate = entry.value;
-        DiaryEntry? diary = box.get(dateKey) as DiaryEntry?;
+        DiaryEntry? diary = box.get(dateKey);
         if (diary != null) {
           final existingIds = diary.locationDiaries.map((e) => e.id).toSet();
           final newLocDiaries = [
