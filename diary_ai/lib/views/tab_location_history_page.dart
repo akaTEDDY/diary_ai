@@ -216,8 +216,8 @@ class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: Text(
-                                  DateFormat('yyyy년 M월 d일')
-                                      .format(DateTime.parse(dateKey)),
+                                  DateFormat('yyyy년 M월 d일').format(
+                                      DateFormat('yyyy-MM-dd').parse(dateKey)),
                                   style: TextStyle(
                                     color: Colors.purple[700],
                                     fontWeight: FontWeight.bold,

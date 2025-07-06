@@ -84,13 +84,13 @@ class SettingsProvider extends ChangeNotifier {
     ),
   ];
 
-  late CharacterPresetData _characterPreset;
-  late int _age;
-  late String _gender;
-  late TimeOfDay _diaryReminderTime;
-  late TimeOfDay _feedbackReminderTime;
-  late bool _diaryReminderEnabled;
-  late bool _feedbackReminderEnabled;
+  CharacterPresetData _characterPreset = _characterPresets.first;
+  int _age = 0;
+  String _gender = '';
+  TimeOfDay _diaryReminderTime = const TimeOfDay(hour: 20, minute: 0);
+  TimeOfDay _feedbackReminderTime = const TimeOfDay(hour: 22, minute: 0);
+  bool _diaryReminderEnabled = true;
+  bool _feedbackReminderEnabled = true;
 
   CharacterPresetData get characterPreset => _characterPreset;
   int get age => _age;

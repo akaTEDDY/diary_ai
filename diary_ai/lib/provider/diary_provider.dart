@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/diary_entry.dart';
 import '../services/diary_service.dart';
+import 'package:intl/intl.dart';
 
 class DiaryProvider extends ChangeNotifier {
   List<DiaryEntry> _diaries = [];
@@ -22,8 +23,7 @@ class DiaryProvider extends ChangeNotifier {
   // 오늘 일기만 반환
   DiaryEntry? get todayDiary {
     final now = DateTime.now();
-    final todayKey =
-        '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final todayKey = DateFormat('yyyy-MM-dd').format(now);
     return groupedByDate[todayKey];
   }
 

@@ -290,7 +290,7 @@ class _TabDiaryListPageState extends State<TabDiaryListPage> {
                     itemBuilder: (context, idx) {
                       final date = sortedDates[idx];
                       final entry = grouped[date]!;
-                      final dateObj = DateTime.parse(date);
+                      final dateObj = DateFormat('yyyy-MM-dd').parse(date);
                       return Container(
                         width: 320,
                         margin: EdgeInsets.only(
@@ -714,6 +714,7 @@ class _TabDiaryListPageState extends State<TabDiaryListPage> {
     entry.aiFeedback = aiFeedback;
     entry.feedbackCreatedAt = DateTime.now();
     entry.hasFeedback = true;
+    await entry.save();
     setState(() {});
     _showAIFeedback(entry);
   }

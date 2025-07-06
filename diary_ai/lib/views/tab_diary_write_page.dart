@@ -83,7 +83,7 @@ class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
         } else {
           final diaryEntry = DiaryEntry(
             id: Uuid().v4(),
-            createdAt: DateTime.parse(dateKey),
+            createdAt: DateFormat('yyyy-MM-dd').parse(dateKey),
             locationDiaries: locDiariesForDate,
           );
           await box.put(dateKey, diaryEntry);
