@@ -416,33 +416,6 @@ class _LocDiaryWritePageState extends State<LocDiaryWritePage> {
                   ),
                 ),
               SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('위치 기록', style: TextStyle(fontWeight: FontWeight.bold)),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        barrierDismissible: false,
-                        builder: (context) => LocDiaryChatDialog(
-                          photoPaths:
-                              _selectedImages.map((f) => f.path).toList(),
-                          location: widget.location,
-                        ),
-                      );
-                    },
-                    icon: Icon(Icons.smart_toy, color: Colors.purple),
-                    label: Text('AI의 도움 받기',
-                        style: TextStyle(color: Colors.purple)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.purple[100],
-                      minimumSize: Size(0, 40),
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 8),
               TextField(
                 controller: _controller,
                 maxLines: 4,

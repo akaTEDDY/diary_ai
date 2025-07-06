@@ -28,6 +28,7 @@ dependencies:
   uuid: ^4.2.1
   common_utils_services:
     path: D:\develop\flutter_common_utils_service\common_utils_services
+  device_info_plus: ^11.5.0
 
 dev_dependencies:
   flutter_test:

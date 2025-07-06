@@ -35,6 +35,10 @@ class PermissionDialog extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
       ),
       child: Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.8,
+          minWidth: 320,
+        ),
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -75,54 +79,58 @@ class PermissionDialog extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-            // 권한 목록
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (requiredItems.isNotEmpty) ...[
-                    const Text('[필수 권한]',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    ...requiredItems
-                        .map((item) => Padding(
-                              padding: const EdgeInsets.only(bottom: 16),
-                              child: _buildPermissionItem(
-                                icon: item.icon,
-                                title: item.title,
-                                description: item.description,
-                                color: item.color,
-                              ),
-                            ))
-                        .toList(),
-                  ],
-                  if (optionalItems.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    const Text('[선택 권한]',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    ...optionalItems
-                        .map((item) => Padding(
-                              padding: const EdgeInsets.only(bottom: 16),
-                              child: _buildPermissionItem(
-                                icon: item.icon,
-                                title: item.title,
-                                description: item.description,
-                                color: item.color,
-                              ),
-                            ))
-                        .toList(),
-                  ],
-                ],
+            // 권한 목록 (스크롤 지원)
+            Expanded(
+              child: SingleChildScrollView(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (requiredItems.isNotEmpty) ...[
+                        const Text('[필수 권한]',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        ...requiredItems
+                            .map((item) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 16),
+                                  child: _buildPermissionItem(
+                                    icon: item.icon,
+                                    title: item.title,
+                                    description: item.description,
+                                    color: item.color,
+                                  ),
+                                ))
+                            .toList(),
+                      ],
+                      if (optionalItems.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        const Text('[선택 권한]',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        ...optionalItems
+                            .map((item) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 16),
+                                  child: _buildPermissionItem(
+                                    icon: item.icon,
+                                    title: item.title,
+                                    description: item.description,
+                                    color: item.color,
+                                  ),
+                                ))
+                            .toList(),
+                      ],
+                    ],
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 24),
-            // 버튼들
+            // 버튼들 (고정)
             Row(
               children: [
                 // 취소 버튼

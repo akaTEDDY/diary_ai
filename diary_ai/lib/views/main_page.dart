@@ -114,7 +114,7 @@ class _MainPageState extends State<MainPage> {
       bottomNavigationBar: BottomNavigationBar(
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.book), label: '일기 목록'),
-          BottomNavigationBarItem(icon: Icon(Icons.edit), label: '추억 모으기'),
+          BottomNavigationBarItem(icon: Icon(Icons.edit), label: '기록 모으기'),
           BottomNavigationBarItem(icon: Icon(Icons.map), label: '내가 지난 장소들'),
           BottomNavigationBarItem(icon: Icon(Icons.settings), label: '설정'),
         ],

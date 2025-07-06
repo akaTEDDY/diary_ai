@@ -6,7 +6,7 @@ import 'package:diary_ai/utils/prompt_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:common_utils_services/models/location_history.dart';
 import 'package:provider/provider.dart';
-import '../provider/character_preset_provider.dart';
+import '../provider/settings_provider.dart';
 
 class LocDiaryChatDialog extends StatefulWidget {
   final List<String> photoPaths;
@@ -67,100 +67,35 @@ class _LocDiaryChatDialogState extends State<LocDiaryChatDialog> {
     setState(() => _isLoading = true);
     final aiServices = AIServices.instance;
     await aiServices.initialize();
-    _currentAiResponse = '';
-    final preset = Provider.of<CharacterPresetProvider>(context, listen: false)
-        .selectedPreset;
-    _aiResponseSubscription = aiServices
-        .getAIResponseStream(
-      PromptUtils.buildPrompt(
-        type: PromptType.firstGreeting,
-        age: preset.age.toString(),
-        gender: preset.gender,
-        kindness: preset.kindnessLevel,
-        locationName: widget.location.placeName,
-        photoList: widget.photoPaths,
-      ),
-      '내 위치랑 사진보고 일기 작성 도와줘',
-      List.empty(),
-    )
-        .listen((chunk) {
-      setState(() {
-        _currentAiResponse += chunk;
-        // 첫 메시지는 AI가 먼저
-        if (_messages.isEmpty || _messages.last.role != 'assistant') {
-          _messages
-              .add(Message(role: 'assistant', content: _currentAiResponse));
-        } else {
-          _messages[_messages.length - 1] =
-              Message(role: 'assistant', content: _currentAiResponse);
+    final preset =
+        Provider.of<SettingsProvider>(context, listen: false).characterPreset;
+    final prompt = PromptUtils.buildPrompt(
+      name: preset.name,
+      age: preset.age.toString(),
+      gender: preset.gender,
+      kindness: preset.kindnessLevel,
+      createdAt: widget.location.timestamp,
+      locationDiaries: [
+        {
+          'locationName': widget.location.placeName,
+          'content': '', // 첫 인사이므로 내용 없음
         }
-      });
-    }, onDone: () {
-      setState(() => _isLoading = false);
+      ],
+      photoCount: widget.photoPaths.length,
+    );
+    final response = await aiServices.getAIResponse(
+      prompt,
+      [],
+    );
+    setState(() {
+      _currentAiResponse = response;
+      _messages.add(Message(role: 'assistant', content: _currentAiResponse));
+      _isLoading = false;
     });
   }
 
   void _sendMessage() async {
-    if (_chatCount >= 4) return;
-    final text = _controller.text.trim();
-    if (text.isEmpty) return;
-    setState(() {
-      _messages.add(Message(role: 'user', content: text));
-      _controller.clear();
-      _isLoading = true;
-    });
-    _currentAiResponse = '';
-    final aiServices = AIServices.instance;
-    await aiServices.initialize();
-    final preset = Provider.of<CharacterPresetProvider>(context, listen: false)
-        .selectedPreset;
-    PromptType type;
-    if (_chatCount <= 2) {
-      type = PromptType.chat;
-    } else if (_chatCount == 3) {
-      type = PromptType.diaryComplete;
-    } else {
-      return;
-    }
-
-    // AI 응답 메시지는 항상 user 메시지 뒤에 새로 추가
-    _aiResponseSubscription = aiServices
-        .getAIResponseStream(
-      PromptUtils.buildPrompt(
-        type: type,
-        age: preset.age.toString(),
-        gender: preset.gender,
-        kindness: preset.kindnessLevel,
-        locationName: widget.location.placeName,
-        photoList: widget.photoPaths,
-        chatHistory: _messages
-            .map((m) => {'role': m.role, 'content': m.content})
-            .toList(),
-      ),
-      text,
-      _messages,
-    )
-        .listen((chunk) {
-      setState(() {
-        _currentAiResponse += chunk;
-        // 마지막 메시지가 assistant가 아니면 새로 추가
-        if (_messages.isEmpty || _messages.last.role != 'assistant') {
-          _messages
-              .add(Message(role: 'assistant', content: _currentAiResponse));
-        } else {
-          _messages[_messages.length - 1] =
-              Message(role: 'assistant', content: _currentAiResponse);
-        }
-      });
-    }, onDone: () {
-      setState(() {
-        _isLoading = false;
-        _chatCount++;
-        if (type == PromptType.diaryComplete) {
-          _diarySummary = _currentAiResponse;
-        }
-      });
-    });
+    // 채팅 기능 제거됨
   }
 
   Future<bool> _handleCloseRequest() async {

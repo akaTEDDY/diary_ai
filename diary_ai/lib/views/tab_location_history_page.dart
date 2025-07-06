@@ -41,7 +41,12 @@ class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
     final provider = Provider.of<LocationHistoryUpdateProvider>(context);
     if (provider.updated) {
       _loadLocationHistory();
-      provider.setUpdated(false);
+      // 빌드 완료 후 상태 업데이트
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          provider.setUpdated(false);
+        }
+      });
     }
   }
 
@@ -146,7 +151,10 @@ class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
       backgroundColor: const Color(0xFFF8FAFF),
       appBar: AppBar(
         backgroundColor: const Color(0xFFF8FAFF),
-        title: Text('내가 지난 장소들'),
+        title: Text('내가 지난 장소들',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+            )),
         actions: [
           IconButton(
             icon: Icon(Icons.power),

@@ -1,7 +1,7 @@
+import 'package:diary_ai/services/diary_notification_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../provider/character_preset_provider.dart';
-import '../provider/user_profile_provider.dart';
+import '../provider/settings_provider.dart';
 
 class CharacterPresetData {
   final String id;
@@ -192,17 +192,61 @@ class _TabSettingsPageState extends State<TabSettingsPage> {
   final TextEditingController _ageController = TextEditingController();
   String _selectedGender = '';
 
+  // 알림 시간 설정 상태
+  TimeOfDay _diaryReminderTime = const TimeOfDay(hour: 20, minute: 0);
+  TimeOfDay _feedbackReminderTime = const TimeOfDay(hour: 22, minute: 0);
+  bool _diaryReminderEnabled = true;
+  bool _feedbackReminderEnabled = true;
+
+  // 초기 설정값 저장
+  String _initialAge = '';
+  String _initialGender = '';
+  int _initialCharacterIndex = 0;
+  TimeOfDay _initialDiaryReminderTime = const TimeOfDay(hour: 20, minute: 0);
+  TimeOfDay _initialFeedbackReminderTime = const TimeOfDay(hour: 22, minute: 0);
+  bool _initialDiaryReminderEnabled = true;
+  bool _initialFeedbackReminderEnabled = true;
+
+  // 설정 변경 여부 확인
+  bool get _hasChanges {
+    return _ageController.text != _initialAge ||
+        _selectedGender != _initialGender ||
+        _selectedIndex != _initialCharacterIndex ||
+        _diaryReminderTime != _initialDiaryReminderTime ||
+        _feedbackReminderTime != _initialFeedbackReminderTime ||
+        _diaryReminderEnabled != _initialDiaryReminderEnabled ||
+        _feedbackReminderEnabled != _initialFeedbackReminderEnabled;
+  }
+
+  String? _feedbackTimeError;
+
   @override
   void initState() {
     super.initState();
-    // 저장된 사용자 정보 불러오기
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final provider = Provider.of<UserProfileProvider>(context, listen: false);
-      await provider.loadProfile();
-      final profile = provider.profile;
+      final settings = Provider.of<SettingsProvider>(context, listen: false);
+      await Future.delayed(Duration(milliseconds: 100)); // Hive 로딩 대기
       setState(() {
-        _ageController.text = profile.age > 0 ? profile.age.toString() : '';
-        _selectedGender = profile.gender;
+        _ageController.text = settings.age > 0 ? settings.age.toString() : '';
+        _selectedGender = settings.gender;
+        _selectedIndex = characterPresets
+            .indexWhere((p) => p.id == settings.characterPreset.id);
+        if (_selectedIndex < 0) {
+          _selectedIndex = characterPresets
+              .indexWhere((p) => p.id == settings.characterPreset.id);
+        }
+        _diaryReminderTime = settings.diaryReminderTime;
+        _feedbackReminderTime = settings.feedbackReminderTime;
+        _diaryReminderEnabled = settings.diaryReminderEnabled;
+        _feedbackReminderEnabled = settings.feedbackReminderEnabled;
+        // 초기값 저장
+        _initialAge = _ageController.text;
+        _initialGender = _selectedGender;
+        _initialCharacterIndex = _selectedIndex;
+        _initialDiaryReminderTime = _diaryReminderTime;
+        _initialFeedbackReminderTime = _feedbackReminderTime;
+        _initialDiaryReminderEnabled = _diaryReminderEnabled;
+        _initialFeedbackReminderEnabled = _feedbackReminderEnabled;
       });
     });
   }
@@ -211,27 +255,9 @@ class _TabSettingsPageState extends State<TabSettingsPage> {
     setState(() {
       _selectedIndex = index;
     });
-    final preset = characterPresets[index];
-    Provider.of<CharacterPresetProvider>(context, listen: false).setPreset(
-      CharacterPreset(
-        id: preset.id,
-        name: preset.name,
-        age: preset.age,
-        gender: preset.gender,
-        kindnessLevel: preset.kindnessLevel,
-        imagePath: preset.imagePath,
-        description: preset.description,
-        emoji: preset.emoji,
-        personality: preset.personality,
-        speechStyle: preset.speechStyle,
-        feedbackStyle: preset.feedbackStyle,
-        promptTemplate: preset.promptTemplate,
-      ),
-    );
   }
 
   void _saveSettings() async {
-    // 사용자 정보 저장
     if (_ageController.text.isEmpty || _selectedGender.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -240,28 +266,84 @@ class _TabSettingsPageState extends State<TabSettingsPage> {
       return;
     }
     final age = int.tryParse(_ageController.text) ?? 0;
-    await Provider.of<UserProfileProvider>(context, listen: false)
-        .setProfile(UserProfile(age: age, gender: _selectedGender));
-    // 캐릭터 프리셋 저장은 기존대로
     final preset = characterPresets[_selectedIndex];
-    Provider.of<CharacterPresetProvider>(context, listen: false).setPreset(
-      CharacterPreset(
-        id: preset.id,
-        name: preset.name,
-        age: preset.age,
-        gender: preset.gender,
-        kindnessLevel: preset.kindnessLevel,
-        imagePath: preset.imagePath,
-        description: preset.description,
-        emoji: preset.emoji,
-        personality: preset.personality,
-        speechStyle: preset.speechStyle,
-        feedbackStyle: preset.feedbackStyle,
-        promptTemplate: preset.promptTemplate,
-      ),
+    await Provider.of<SettingsProvider>(context, listen: false).saveSettings(
+      characterPreset: preset,
+      age: age,
+      gender: _selectedGender,
+      diaryReminderTime: _diaryReminderTime,
+      feedbackReminderTime: _feedbackReminderTime,
+      diaryReminderEnabled: _diaryReminderEnabled,
+      feedbackReminderEnabled: _feedbackReminderEnabled,
     );
+    // 알림 설정 저장
+    final diaryNotificationService = DiaryNotificationService();
+
+    // 기존 알림 취소
+    await diaryNotificationService.cancelDailyReminders();
+    if (_diaryReminderEnabled) {
+      await diaryNotificationService.scheduleDailyDiaryReminder(
+        _diaryReminderTime.hour,
+        _diaryReminderTime.minute,
+      );
+    }
+    if (_feedbackReminderEnabled) {
+      await diaryNotificationService.scheduleDailyFeedbackReminder(
+        _feedbackReminderTime.hour,
+        _feedbackReminderTime.minute,
+      );
+    }
+
+    // 초기값 업데이트
+    setState(() {
+      _initialAge = _ageController.text;
+      _initialGender = _selectedGender;
+      _initialCharacterIndex = _selectedIndex;
+      _initialDiaryReminderTime = _diaryReminderTime;
+      _initialFeedbackReminderTime = _feedbackReminderTime;
+      _initialDiaryReminderEnabled = _diaryReminderEnabled;
+      _initialFeedbackReminderEnabled = _feedbackReminderEnabled;
+    });
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('설정이 저장되었습니다'), backgroundColor: Colors.green),
+    );
+  }
+
+  void _showFeedbackTimePicker() async {
+    final time = await showTimePicker(
+      context: context,
+      initialTime: _feedbackReminderTime,
+    );
+    if (time != null && (time.hour >= 22 || time.hour == 0)) {
+      setState(() {
+        _feedbackReminderTime = time;
+      });
+    } else if (time != null) {
+      _showFeedbackTimeErrorDialog();
+    }
+  }
+
+  void _showFeedbackTimeErrorDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('알림'),
+        content: Text('AI 피드백 알림 시간은 22시~24시만 선택할 수 있습니다.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('취소'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _showFeedbackTimePicker();
+            },
+            child: Text('재설정'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -269,360 +351,669 @@ class _TabSettingsPageState extends State<TabSettingsPage> {
   Widget build(BuildContext context) {
     final preset = characterPresets[_selectedIndex];
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFF),
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF8FAFF),
-        title: const Text('설정'),
+        backgroundColor: Colors.white,
+        title: const Text('설정',
+            style: TextStyle(
+                color: Color(0xFF2D3748), fontWeight: FontWeight.bold)),
         elevation: 0,
-        foregroundColor: Colors.black,
+        foregroundColor: const Color(0xFF2D3748),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 사용자 정보 카드
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16)),
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.person, color: Colors.blue, size: 24),
-                        SizedBox(width: 10),
-                        Text('사용자 정보',
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 16)),
+      body: Column(
+        children: [
+          // 스크롤 가능한 내용
+          Expanded(
+            child: SingleChildScrollView(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 사용자 정보 카드
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF8B5CF6).withOpacity(0.08),
+                          blurRadius: 20,
+                          offset: const Offset(0, 4),
+                        ),
                       ],
-                    ),
-                    SizedBox(height: 20),
-                    Text('나이',
-                        style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF4A5568))),
-                    SizedBox(height: 8),
-                    TextField(
-                      controller: _ageController,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        hintText: '예: 25',
-                        filled: true,
-                        fillColor: Colors.white,
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Color(0xFFE2E8F0)),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Color(0xFFE2E8F0)),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.blue, width: 2),
-                        ),
+                      border: Border.all(
+                        color: const Color(0xFF8B5CF6).withOpacity(0.1),
                       ),
                     ),
-                    SizedBox(height: 20),
-                    Text('성별',
-                        style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF4A5568))),
-                    SizedBox(height: 8),
-                    Row(
-                      children: ['남성', '여성', '기타'].map((gender) {
-                        final isSelected = _selectedGender == gender;
-                        return Expanded(
-                          child: Padding(
-                            padding:
-                                EdgeInsets.only(right: gender != '기타' ? 8 : 0),
-                            child: GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  _selectedGender = gender;
-                                });
-                              },
-                              child: Container(
-                                padding: EdgeInsets.symmetric(vertical: 12),
-                                decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? Color(0xFFEEF4FF)
-                                      : Color(0xFFF7FAFC),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: isSelected
-                                        ? Color(0xFF667EEA)
-                                        : Color(0xFFE2E8F0),
-                                  ),
-                                ),
-                                child: Text(
-                                  gender,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: isSelected
-                                        ? Color(0xFF667EEA)
-                                        : Color(0xFF4A5568),
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            SizedBox(height: 20),
-            // AI 캐릭터 카드
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16)),
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+                    padding: const EdgeInsets.all(24.0),
+                    margin: const EdgeInsets.only(bottom: 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.smart_toy, color: Colors.blue, size: 24),
-                        SizedBox(width: 10),
-                        Text('AI 캐릭터 설정',
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 16)),
-                      ],
-                    ),
-                    SizedBox(height: 20),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 22,
-                            backgroundColor: Colors.grey[400],
-                            backgroundImage: AssetImage(preset.imagePath),
-                          ),
-                          SizedBox(width: 14),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(preset.name,
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16)),
-                              SizedBox(height: 2),
-                              Text(preset.description,
-                                  style: TextStyle(
-                                      fontSize: 13, color: Colors.grey[700])),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(height: 14),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          // 캐릭터 변경 모달 오픈
-                          showModalBottomSheet(
-                            context: context,
-                            isScrollControlled: true,
-                            backgroundColor: Colors.transparent,
-                            builder: (context) => Container(
-                              height: MediaQuery.of(context).size.height * 0.7,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.vertical(
-                                    top: Radius.circular(20)),
-                              ),
-                              child: Column(
-                                children: [
-                                  Container(
-                                    padding: EdgeInsets.all(20),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text('AI 캐릭터 선택',
-                                            style: TextStyle(
-                                                fontSize: 20,
-                                                fontWeight: FontWeight.bold)),
-                                        IconButton(
-                                          onPressed: () =>
-                                              Navigator.pop(context),
-                                          icon: Icon(Icons.close),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: GridView.builder(
-                                      padding:
-                                          EdgeInsets.symmetric(horizontal: 20),
-                                      gridDelegate:
-                                          SliverGridDelegateWithFixedCrossAxisCount(
-                                        crossAxisCount: 2,
-                                        crossAxisSpacing: 16,
-                                        mainAxisSpacing: 16,
-                                        childAspectRatio: 0.8,
-                                      ),
-                                      itemCount: characterPresets.length,
-                                      itemBuilder: (context, index) {
-                                        final c = characterPresets[index];
-                                        final isSelected =
-                                            _selectedIndex == index;
-                                        return GestureDetector(
-                                          onTap: () {
-                                            setState(() {
-                                              _selectedIndex = index;
-                                            });
-                                            Navigator.pop(context);
-                                          },
-                                          child: Container(
-                                            padding: EdgeInsets.all(16),
-                                            decoration: BoxDecoration(
-                                              color: Colors.white,
-                                              borderRadius:
-                                                  BorderRadius.circular(16),
-                                              border: Border.all(
-                                                color: isSelected
-                                                    ? Colors.blue
-                                                    : Colors.grey
-                                                        .withOpacity(0.3),
-                                                width: isSelected ? 2 : 1,
-                                              ),
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color: Colors.black
-                                                      .withOpacity(0.1),
-                                                  blurRadius: 8,
-                                                  offset: Offset(0, 2),
-                                                ),
-                                              ],
-                                            ),
-                                            child: Column(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.center,
-                                              children: [
-                                                Container(
-                                                  width: 50,
-                                                  height: 50,
-                                                  decoration: BoxDecoration(
-                                                    color: c.imagePath ==
-                                                            preset.imagePath
-                                                        ? Colors.blue[50]
-                                                        : c.imagePath == ''
-                                                            ? Colors.grey[200]
-                                                            : Colors.white,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            25),
-                                                  ),
-                                                  child: Center(
-                                                    child: Text(c.emoji,
-                                                        style: TextStyle(
-                                                            fontSize: 20)),
-                                                  ),
-                                                ),
-                                                SizedBox(height: 12),
-                                                Text(c.name,
-                                                    style: TextStyle(
-                                                        fontSize: 16,
-                                                        fontWeight:
-                                                            FontWeight.bold)),
-                                                SizedBox(height: 4),
-                                                Text(c.description,
-                                                    textAlign: TextAlign.center,
-                                                    style: TextStyle(
-                                                        fontSize: 12,
-                                                        color:
-                                                            Colors.grey[600]),
-                                                    maxLines: 2,
-                                                    overflow:
-                                                        TextOverflow.ellipsis),
-                                              ],
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Color(0xFF667EEA),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 2,
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                        Row(
                           children: [
-                            Icon(Icons.edit, color: Colors.white, size: 18),
-                            SizedBox(width: 8),
-                            Text('캐릭터 변경',
+                            Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF8B5CF6).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                Icons.person,
+                                color: const Color(0xFF8B5CF6),
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Text('사용자 정보',
                                 style: TextStyle(
-                                    fontSize: 16, fontWeight: FontWeight.bold)),
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 18,
+                                    color: Color(0xFF2D3748))),
                           ],
                         ),
+                        const SizedBox(height: 15),
+                        const Text('나이',
+                            style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF4A5568))),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: _ageController,
+                          keyboardType: TextInputType.number,
+                          onChanged: (value) => setState(() {}),
+                          decoration: InputDecoration(
+                            hintText: '예: 25',
+                            filled: true,
+                            fillColor: const Color(0xFFF9FAFB),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide:
+                                  const BorderSide(color: Color(0xFFE5E7EB)),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide:
+                                  const BorderSide(color: Color(0xFFE5E7EB)),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                  color: Color(0xFF8B5CF6), width: 2),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        const Text('성별',
+                            style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF4A5568))),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: ['남성', '여성', '기타'].map((gender) {
+                            final isSelected = _selectedGender == gender;
+                            return Expanded(
+                              child: Padding(
+                                padding: EdgeInsets.only(
+                                    right: gender != '기타' ? 8 : 0),
+                                child: GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      _selectedGender = gender;
+                                    });
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12),
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                          ? const Color(0xFF8B5CF6)
+                                          : const Color(0xFFF9FAFB),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: isSelected
+                                            ? const Color(0xFF8B5CF6)
+                                            : const Color(0xFFE5E7EB),
+                                      ),
+                                      boxShadow: isSelected
+                                          ? [
+                                              BoxShadow(
+                                                color: const Color(0xFF8B5CF6)
+                                                    .withOpacity(0.3),
+                                                blurRadius: 12,
+                                                offset: const Offset(0, 4),
+                                              ),
+                                            ]
+                                          : null,
+                                    ),
+                                    child: Text(
+                                      gender,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: isSelected
+                                            ? Colors.white
+                                            : const Color(0xFF4A5568),
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // AI 캐릭터 카드
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF8B5CF6).withOpacity(0.08),
+                          blurRadius: 20,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                      border: Border.all(
+                        color: const Color(0xFF8B5CF6).withOpacity(0.1),
                       ),
                     ),
-                  ],
-                ),
+                    padding: const EdgeInsets.all(24.0),
+                    margin: const EdgeInsets.only(bottom: 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF8B5CF6).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                Icons.smart_toy,
+                                color: const Color(0xFF8B5CF6),
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Text('AI 캐릭터 설정',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 18,
+                                    color: Color(0xFF2D3748))),
+                          ],
+                        ),
+                        const SizedBox(height: 15),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF8B5CF6).withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: const Color(0xFF8B5CF6).withOpacity(0.2),
+                            ),
+                          ),
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 60,
+                                height: 60,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF8B5CF6),
+                                  borderRadius: BorderRadius.circular(30),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFF8B5CF6)
+                                          .withOpacity(0.3),
+                                      blurRadius: 12,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    preset.emoji,
+                                    style: const TextStyle(fontSize: 24),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      preset.name,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18,
+                                        color: Color(0xFF2D3748),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      preset.description,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        color: Color(0xFF4A5568),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 15),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              // 캐릭터 변경 모달 오픈
+                              showModalBottomSheet(
+                                context: context,
+                                isScrollControlled: true,
+                                backgroundColor: Colors.transparent,
+                                builder: (context) => Container(
+                                  height:
+                                      MediaQuery.of(context).size.height * 0.7,
+                                  decoration: const BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.vertical(
+                                        top: Radius.circular(20)),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(20),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            const Text('AI 캐릭터 선택',
+                                                style: TextStyle(
+                                                    fontSize: 20,
+                                                    fontWeight:
+                                                        FontWeight.bold)),
+                                            IconButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(context),
+                                              icon: const Icon(Icons.close),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: GridView.builder(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 20),
+                                          gridDelegate:
+                                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                            crossAxisCount: 2,
+                                            crossAxisSpacing: 16,
+                                            mainAxisSpacing: 16,
+                                            childAspectRatio: 0.8,
+                                          ),
+                                          itemCount: characterPresets.length,
+                                          itemBuilder: (context, index) {
+                                            final c = characterPresets[index];
+                                            final isSelected =
+                                                _selectedIndex == index;
+                                            return GestureDetector(
+                                              onTap: () {
+                                                _onPresetChanged(index);
+                                                Navigator.pop(context);
+                                              },
+                                              child: Container(
+                                                padding:
+                                                    const EdgeInsets.all(16),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white,
+                                                  borderRadius:
+                                                      BorderRadius.circular(16),
+                                                  border: Border.all(
+                                                    color: isSelected
+                                                        ? const Color(
+                                                            0xFF8B5CF6)
+                                                        : Colors.grey
+                                                            .withOpacity(0.1),
+                                                    width: isSelected ? 2 : 1,
+                                                  ),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: isSelected
+                                                          ? const Color(
+                                                                  0xFF8B5CF6)
+                                                              .withOpacity(0.3)
+                                                          : Colors.black
+                                                              .withOpacity(0.1),
+                                                      blurRadius:
+                                                          isSelected ? 20 : 8,
+                                                      offset:
+                                                          const Offset(0, 2),
+                                                    ),
+                                                  ],
+                                                ),
+                                                child: Column(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.center,
+                                                  children: [
+                                                    Container(
+                                                      width: 50,
+                                                      height: 50,
+                                                      decoration: BoxDecoration(
+                                                        color: isSelected
+                                                            ? const Color(
+                                                                0xFF8B5CF6)
+                                                            : Colors.grey[200],
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(25),
+                                                      ),
+                                                      child: Center(
+                                                        child: Text(c.emoji,
+                                                            style:
+                                                                const TextStyle(
+                                                                    fontSize:
+                                                                        20)),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 12),
+                                                    Text(c.name,
+                                                        style: const TextStyle(
+                                                            fontSize: 16,
+                                                            fontWeight:
+                                                                FontWeight
+                                                                    .bold)),
+                                                    const SizedBox(height: 4),
+                                                    Text(c.description,
+                                                        textAlign:
+                                                            TextAlign.center,
+                                                        style: const TextStyle(
+                                                            fontSize: 12,
+                                                            color: Colors.grey),
+                                                        maxLines: 2,
+                                                        overflow: TextOverflow
+                                                            .ellipsis),
+                                                  ],
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: const Color(0xFF8B5CF6),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                side:
+                                    const BorderSide(color: Color(0xFF8B5CF6)),
+                              ),
+                              elevation: 0,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.edit,
+                                    color: const Color(0xFF8B5CF6), size: 18),
+                                const SizedBox(width: 8),
+                                const Text('캐릭터 변경',
+                                    style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // 알림 설정 카드
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF8B5CF6).withOpacity(0.08),
+                          blurRadius: 20,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                      border: Border.all(
+                        color: const Color(0xFF8B5CF6).withOpacity(0.1),
+                      ),
+                    ),
+                    padding: const EdgeInsets.all(24.0),
+                    margin: const EdgeInsets.only(bottom: 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF8B5CF6).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                Icons.notifications,
+                                color: const Color(0xFF8B5CF6),
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Text('알림 설정',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 18,
+                                    color: Color(0xFF2D3748))),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+
+                        // 일기 작성 알림 설정
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Switch(
+                                  value: _diaryReminderEnabled,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _diaryReminderEnabled = value;
+                                    });
+                                  },
+                                  activeColor: const Color(0xFF8B5CF6),
+                                ),
+                                const SizedBox(width: 8),
+                                const Text('일기 작성 알림',
+                                    style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF2D3748))),
+                                const Spacer(),
+                                if (_diaryReminderEnabled)
+                                  GestureDetector(
+                                    onTap: () async {
+                                      final time = await showTimePicker(
+                                        context: context,
+                                        initialTime: _diaryReminderTime,
+                                      );
+                                      if (time != null) {
+                                        setState(() {
+                                          _diaryReminderTime = time;
+                                        });
+                                      }
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 12, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF8B5CF6)
+                                            .withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: const Color(0xFF8B5CF6)
+                                              .withOpacity(0.3),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        _diaryReminderTime.format(context),
+                                        style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFF8B5CF6)),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '매일 ${_diaryReminderTime.format(context)}에 일기 작성을 권유합니다',
+                              style: const TextStyle(
+                                  fontSize: 14, color: Color(0xFF4A5568)),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // AI 피드백 알림 설정
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Switch(
+                                  value: _feedbackReminderEnabled,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _feedbackReminderEnabled = value;
+                                    });
+                                  },
+                                  activeColor: const Color(0xFF8B5CF6),
+                                ),
+                                const SizedBox(width: 8),
+                                const Text('AI 피드백 알림',
+                                    style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF2D3748))),
+                                const Spacer(),
+                                if (_feedbackReminderEnabled)
+                                  GestureDetector(
+                                    onTap: _showFeedbackTimePicker,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 12, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF8B5CF6)
+                                            .withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: const Color(0xFF8B5CF6)
+                                              .withOpacity(0.3),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        _feedbackReminderTime.format(context),
+                                        style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFF8B5CF6)),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '매일 ${_feedbackReminderTime.format(context)}에 AI 피드백을 제공합니다',
+                              style: const TextStyle(
+                                  fontSize: 14, color: Color(0xFF4A5568)),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-            SizedBox(height: 32),
-            // 저장 버튼
-            SizedBox(
+          ),
+
+          // 하단 고정 저장 버튼
+          Container(
+            padding: const EdgeInsets.all(20.0),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            child: SizedBox(
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
-                onPressed: _saveSettings,
+                onPressed: _hasChanges ? _saveSettings : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Color(0xFF667EEA),
-                  foregroundColor: Colors.white,
+                  backgroundColor: _hasChanges
+                      ? const Color(0xFF8B5CF6)
+                      : const Color(0xFFE5E7EB),
+                  foregroundColor:
+                      _hasChanges ? Colors.white : const Color(0xFF9CA3AF),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  elevation: 2,
+                  elevation: _hasChanges ? 4 : 0,
+                  shadowColor: _hasChanges
+                      ? const Color(0xFF8B5CF6).withOpacity(0.3)
+                      : null,
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.save, size: 20),
-                    SizedBox(width: 8),
-                    Text('설정 저장',
+                    const SizedBox(width: 8),
+                    const Text('설정 저장',
                         style: TextStyle(
                             fontSize: 16, fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -6,6 +6,9 @@ import 'dart:io';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../models/loc_diary_entry.dart';
+import 'package:diary_ai/provider/settings_provider.dart';
+import 'package:common_utils_services/services/ai_services.dart';
+import 'package:diary_ai/utils/prompt_utils.dart';
 
 class TabDiaryListPage extends StatefulWidget {
   const TabDiaryListPage({Key? key}) : super(key: key);
@@ -22,9 +25,24 @@ class _TabDiaryListPageState extends State<TabDiaryListPage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<DiaryProvider>().loadDiaries();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await context.read<DiaryProvider>().loadDiaries();
+      _requestAIFeedbackIfNeeded();
     });
+  }
+
+  void _requestAIFeedbackIfNeeded() {
+    final diaryProvider = context.read<DiaryProvider>();
+    final todayKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final todayDiary = diaryProvider.groupedByDate[todayKey];
+    final now = DateTime.now();
+    if (todayDiary != null && now.hour >= 22 && now.hour <= 23) {
+      if (todayDiary.hasFeedback) {
+        // 이미 피드백 받음
+        return;
+      }
+      _requestAIFeedback(todayDiary);
+    }
   }
 
   DiaryEntry? _getDiaryForDayEntry(BuildContext context, DateTime day) {
@@ -110,7 +128,23 @@ class _TabDiaryListPageState extends State<TabDiaryListPage> {
                     Icon(Icons.access_time,
                         size: 16, color: Colors.purple[200]),
                     SizedBox(width: 4),
-                    Text(DateFormat('HH:mm').format(location.timestamp),
+                    Text(
+                        '방문: ' +
+                            DateFormat('yyyy-MM-dd HH:mm')
+                                .format(location.timestamp),
+                        style:
+                            TextStyle(fontSize: 13, color: Colors.grey[700])),
+                  ],
+                ),
+                SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(Icons.edit, size: 16, color: Colors.purple[200]),
+                    SizedBox(width: 4),
+                    Text(
+                        '작성: ' +
+                            DateFormat('yyyy-MM-dd HH:mm')
+                                .format(entry.createdAt),
                         style:
                             TextStyle(fontSize: 13, color: Colors.grey[700])),
                   ],
@@ -173,7 +207,10 @@ class _TabDiaryListPageState extends State<TabDiaryListPage> {
       backgroundColor: const Color(0xFFF8FAFF),
       appBar: AppBar(
         backgroundColor: const Color(0xFFF8FAFF),
-        title: Text('일기 목록'),
+        title: Text('일기 목록',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+            )),
       ),
       body: Column(
         children: [
@@ -190,7 +227,7 @@ class _TabDiaryListPageState extends State<TabDiaryListPage> {
                 shape: BoxShape.circle,
               ),
               todayDecoration: BoxDecoration(
-                color: Colors.blue[500],
+                color: Colors.purple[200],
                 shape: BoxShape.circle,
               ),
               selectedDecoration: BoxDecoration(
@@ -276,21 +313,51 @@ class _TabDiaryListPageState extends State<TabDiaryListPage> {
                               ),
                               padding: EdgeInsets.symmetric(
                                   horizontal: 20, vertical: 14),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                              child: Row(
                                 children: [
-                                  Text(_formatDateHeader(dateObj),
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16,
-                                          color: Colors.white)),
-                                  SizedBox(height: 2),
-                                  Text(
-                                      DateFormat('yyyy년 M월 d일').format(dateObj),
-                                      style: TextStyle(
-                                          fontSize: 13,
-                                          color:
-                                              Colors.white.withOpacity(0.8))),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(_formatDateHeader(dateObj),
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 16,
+                                                color: Colors.white)),
+                                        SizedBox(height: 2),
+                                        Text(
+                                            DateFormat('yyyy년 M월 d일')
+                                                .format(dateObj),
+                                            style: TextStyle(
+                                                fontSize: 13,
+                                                color: Colors.white
+                                                    .withOpacity(0.8))),
+                                      ],
+                                    ),
+                                  ),
+                                  // AI 답장 아이콘 (우체통/편지)
+                                  GestureDetector(
+                                    onTap: () => _handleAIFeedback(entry),
+                                    child: Container(
+                                      padding: EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: entry.hasFeedback
+                                            ? Colors.yellow.withOpacity(0.3)
+                                            : Colors.white.withOpacity(0.2),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Icon(
+                                        entry.hasFeedback
+                                            ? Icons.mail
+                                            : Icons.local_post_office,
+                                        color: entry.hasFeedback
+                                            ? Colors.yellow[700]
+                                            : Colors.white,
+                                        size: 20,
+                                      ),
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -385,9 +452,7 @@ class _TabDiaryListPageState extends State<TabDiaryListPage> {
                                                   ),
                                                   SizedBox(height: 2),
                                                   Text(
-                                                      DateFormat('HH:mm')
-                                                          .format(location
-                                                              .timestamp),
+                                                      '${DateFormat('HH:mm').format(location.timestamp)} 작성 ',
                                                       style: TextStyle(
                                                           fontSize: 12,
                                                           color: Colors
@@ -461,5 +526,195 @@ class _TabDiaryListPageState extends State<TabDiaryListPage> {
     } else {
       return DateFormat('M월 d일 (E)', 'ko_KR').format(date);
     }
+  }
+
+  void _handleAIFeedback(DiaryEntry entry) {
+    if (entry.hasFeedback) {
+      // 피드백이 있으면 피드백 내용을 보여줌
+      _showAIFeedback(entry);
+    } else {
+      // 피드백이 없으면 AI에게 요청
+      _requestAIFeedback(entry);
+    }
+  }
+
+  void _showAIFeedback(DiaryEntry entry) {
+    final characterPreset =
+        Provider.of<SettingsProvider>(context, listen: false).characterPreset;
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  if (characterPreset.imagePath.isNotEmpty)
+                    CircleAvatar(
+                      backgroundImage: AssetImage(characterPreset.imagePath),
+                      radius: 22,
+                    )
+                  else if (characterPreset.emoji.isNotEmpty)
+                    Text(
+                      characterPreset.emoji,
+                      style: TextStyle(fontSize: 36),
+                    )
+                  else
+                    Icon(Icons.person, size: 36, color: Colors.purple[300]),
+                  SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        characterPreset.name,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                          color: Colors.purple[800],
+                        ),
+                      ),
+                      if (characterPreset.description.isNotEmpty)
+                        Text(
+                          characterPreset.description,
+                          style:
+                              TextStyle(fontSize: 13, color: Colors.grey[700]),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+              SizedBox(height: 20),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (characterPreset.imagePath.isNotEmpty)
+                    CircleAvatar(
+                      backgroundImage: AssetImage(characterPreset.imagePath),
+                      radius: 18,
+                    )
+                  else if (characterPreset.emoji.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2.0),
+                      child: Text(
+                        characterPreset.emoji,
+                        style: TextStyle(fontSize: 28),
+                      ),
+                    )
+                  else
+                    Icon(Icons.person, size: 28, color: Colors.purple[200]),
+                  SizedBox(width: 10),
+                  Flexible(
+                    child: Container(
+                      padding:
+                          EdgeInsets.symmetric(vertical: 14, horizontal: 18),
+                      decoration: BoxDecoration(
+                        color: Colors.purple[50],
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(18),
+                          topRight: Radius.circular(18),
+                          bottomRight: Radius.circular(18),
+                        ),
+                        border: Border.all(color: Colors.purple[100]!),
+                      ),
+                      child: Text(
+                        entry.aiFeedback ?? '피드백 내용이 없습니다.',
+                        style:
+                            TextStyle(fontSize: 16, color: Colors.purple[900]),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (entry.feedbackCreatedAt != null) ...[
+                SizedBox(height: 12),
+                Text(
+                  '작성: ${DateFormat('yyyy년 M월 d일 HH:mm').format(entry.feedbackCreatedAt!)}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+              ],
+              SizedBox(height: 20),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text(
+                    '닫기',
+                    style: TextStyle(
+                      color: Colors.purple[700],
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _requestAIFeedback(DiaryEntry entry) async {
+    final characterPreset =
+        Provider.of<SettingsProvider>(context, listen: false).characterPreset;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(color: Colors.purple[600]),
+              SizedBox(height: 16),
+              Text(
+                '${characterPreset.name}가 일기를 분석하고 있습니다...',
+                style: TextStyle(fontSize: 16, color: Colors.grey[800]),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    // AI 프롬프트 생성
+    final prompt = PromptUtils.buildPrompt(
+      name: characterPreset.name,
+      age: characterPreset.age.toString(),
+      gender: characterPreset.gender,
+      kindness: characterPreset.kindnessLevel,
+      createdAt: entry.createdAt,
+      locationDiaries: entry.locationDiaries
+          .map((loc) => {
+                'locationName': loc.location.placeName,
+                'content': loc.content,
+              })
+          .toList(),
+      photoCount: entry.allPhotoPaths.length,
+    );
+
+    // AI 호출
+    final aiServices = AIServices.instance;
+    await aiServices.initialize();
+    final aiFeedback = await aiServices.getAIResponse(
+      prompt,
+      [], // 대화 이력 없음(단일 프롬프트)
+    );
+
+    Navigator.of(context).pop(); // 로딩 다이얼로그 닫기
+
+    // 결과 저장 및 UI 갱신
+    entry.aiFeedback = aiFeedback;
+    entry.feedbackCreatedAt = DateTime.now();
+    entry.hasFeedback = true;
+    setState(() {});
+    _showAIFeedback(entry);
   }
 }

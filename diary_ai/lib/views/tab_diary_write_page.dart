@@ -191,7 +191,10 @@ class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFF),
       appBar: AppBar(
-        title: Text('소중한 순간들을 모아서'),
+        title: Text('기록 모으기',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+            )),
         backgroundColor: const Color(0xFFF8FAFF),
         elevation: 0,
         foregroundColor: Colors.black87,
