@@ -56,13 +56,14 @@ class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
     });
     try {
       var currentHistory = widget._locationHistoryManager.locationHistory;
-      if (currentHistory.isEmpty) {
-        String? locationJson = await LocationUtils.getCurrentLocation();
-        if (locationJson != null && mounted) {
-          widget._locationHistoryManager.addLocationHistory(locationJson);
-          currentHistory = widget._locationHistoryManager.locationHistory;
-        }
-      }
+      // accuracy < threshold 조건을 만족하는 히스토리만 남김
+      currentHistory = currentHistory.where((locationHistory) {
+        final place = locationHistory.place;
+        if (place == null) return false;
+        final accuracy = place["accuracy"];
+        if (accuracy == null) return false;
+        return accuracy >= 0.3;
+      }).toList();
       // 오늘의 위치 일기 불러오기
       final todayLocDiaries = await LocDiaryService().getLocDiariesForToday();
       // 오늘의 일기 불러오기
@@ -259,14 +260,13 @@ class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
 
                           // 일기 작성 여부 확인 (위치 일기 or 병합된 일기)
                           final bool hasDiary =
-                              LocDiaryService.findLocationDiaryByDisplayName(
-                                        location.displayName,
+                              LocDiaryService.findLocationDiaryByLocation(
+                                        location,
                                         _todayLocDiaries,
                                       ) !=
                                       null ||
-                                  LocDiaryService
-                                      .isLocationDisplayNameAlreadyInTodayDiary(
-                                    location.displayName,
+                                  LocDiaryService.isLocationAlreadyInDiary(
+                                    location,
                                     _todayDiary,
                                   );
                           final Color cardColor = hasDiary

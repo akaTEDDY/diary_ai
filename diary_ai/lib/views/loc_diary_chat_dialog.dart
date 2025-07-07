@@ -65,30 +65,27 @@ class _LocDiaryChatDialogState extends State<LocDiaryChatDialog> {
 
   void _requestFirstGreeting() async {
     setState(() => _isLoading = true);
-    final aiServices = AIServices.instance;
-    await aiServices.initialize();
-    final preset =
-        Provider.of<SettingsProvider>(context, listen: false).characterPreset;
-    final prompt = PromptUtils.buildPrompt(
-      name: preset.name,
-      age: preset.age.toString(),
-      gender: preset.gender,
-      kindness: preset.kindnessLevel,
-      createdAt: widget.location.timestamp,
-      locationDiaries: [
-        {
-          'locationName': widget.location.placeName,
-          'content': '', // 첫 인사이므로 내용 없음
-        }
-      ],
-      photoCount: widget.photoPaths.length,
-    );
-    final response = await aiServices.getAIResponse(
-      prompt,
-      [],
-    );
+    // final aiServices = AIServices.instance;
+    // await aiServices.initialize();
+    // final preset =
+    //     Provider.of<SettingsProvider>(context, listen: false).characterPreset;
+    // final prompt = PromptUtils.buildPrompt(
+    //   context: context,
+    //   createdAt: widget.location.timestamp,
+    //   locationDiaries: [
+    //     {
+    //       'locationName': widget.location.placeName,
+    //       'content': '', // 첫 인사이므로 내용 없음
+    //     }
+    //   ],
+    //   photoCount: widget.photoPaths.length,
+    // );
+    // final response = await aiServices.getAIResponse(
+    //   prompt,
+    //   [],
+    // );
     setState(() {
-      _currentAiResponse = response;
+      // _currentAiResponse = response;
       _messages.add(Message(role: 'assistant', content: _currentAiResponse));
       _isLoading = false;
     });

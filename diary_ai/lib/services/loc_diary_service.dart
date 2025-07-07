@@ -42,28 +42,34 @@ class LocDiaryService {
     return _timeFormat.format(time);
   }
 
-  /// 특정 위치가 오늘의 일기에 이미 포함되어 있는지 확인 (displayName 기반)
-  static bool isLocationDisplayNameAlreadyInTodayDiary(
-    String displayName,
-    DiaryEntry? todayDiary,
-  ) {
-    if (todayDiary == null) return false;
-    return todayDiary.locationDiaries.any((locDiary) => locDiary.location.displayName == displayName);
-  }
-
-  /// 위치 일기 목록에서 특정 displayName의 일기를 찾기
-  static LocDiaryEntry? findLocationDiaryByDisplayName(
-    String displayName,
-    List<LocDiaryEntry> locDiaries,
-  ) {
-    return locDiaries.firstWhereOrNull(
-      (locDiary) => locDiary.location.displayName == displayName,
-    );
-  }
-
   /// 그룹화된 일기 맵에서 오늘 날짜의 일기만 추출
   static DiaryEntry? getTodayDiary(Map<String, DiaryEntry> groupedDiaries) {
     final todayKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
     return groupedDiaries[todayKey];
+  }
+
+  /// 특정 위치 히스토리가 일기(병합 포함)에 이미 포함되어 있는지 확인 (displayName + formattedTime 기준)
+  static bool isLocationAlreadyInDiary(
+    dynamic locationHistory, // LocationHistory 타입 객체
+    DiaryEntry? diary,
+  ) {
+    if (diary == null) return false;
+    final displayName = locationHistory.displayName;
+    final formattedTime = locationHistory.formattedTime;
+    return diary.locationDiaries.any((locDiary) =>
+        locDiary.location.displayName == displayName &&
+        locDiary.location.formattedTime == formattedTime);
+  }
+
+  /// 위치 히스토리와 displayName + formattedTime이 일치하는 위치 일기 찾기
+  static LocDiaryEntry? findLocationDiaryByLocation(
+    dynamic locationHistory, // LocationHistory 타입 객체
+    List<LocDiaryEntry> locDiaries,
+  ) {
+    final displayName = locationHistory.displayName;
+    final formattedTime = locationHistory.formattedTime;
+    return locDiaries.firstWhereOrNull((locDiary) =>
+        locDiary.location.displayName == displayName &&
+        locDiary.location.formattedTime == formattedTime);
   }
 }

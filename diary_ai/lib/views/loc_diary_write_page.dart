@@ -53,9 +53,8 @@ class _LocDiaryWritePageState extends State<LocDiaryWritePage> {
   Future<void> _checkIfMergedToTodayDiary() async {
     final diaries = await DiaryService().getAllDiariesGroupedByDateTime();
     final todayDiary = LocDiaryService.getTodayDiary(diaries);
-    final isAlreadyMerged =
-        LocDiaryService.isLocationDisplayNameAlreadyInTodayDiary(
-      widget.location.displayName,
+    final isAlreadyMerged = LocDiaryService.isLocationAlreadyInDiary(
+      widget.location,
       todayDiary,
     );
     if (isAlreadyMerged && mounted) {
@@ -84,8 +83,8 @@ class _LocDiaryWritePageState extends State<LocDiaryWritePage> {
     final locDiaries = await LocDiaryService().getLocDiariesForToday();
 
     // 새로운 효율적인 함수 사용
-    final existingEntry = LocDiaryService.findLocationDiaryByDisplayName(
-      widget.location.displayName,
+    final existingEntry = LocDiaryService.findLocationDiaryByLocation(
+      widget.location,
       locDiaries,
     );
 
@@ -167,9 +166,8 @@ class _LocDiaryWritePageState extends State<LocDiaryWritePage> {
     }
     final diaries = await DiaryService().getAllDiariesGroupedByDateTime();
     final todayDiary = LocDiaryService.getTodayDiary(diaries);
-    final isAlreadyMerged =
-        LocDiaryService.isLocationDisplayNameAlreadyInTodayDiary(
-      widget.location.displayName,
+    final isAlreadyMerged = LocDiaryService.isLocationAlreadyInDiary(
+      widget.location,
       todayDiary,
     );
     if (isAlreadyMerged && mounted) {

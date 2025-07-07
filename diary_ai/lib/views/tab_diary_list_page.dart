@@ -9,6 +9,7 @@ import '../models/loc_diary_entry.dart';
 import 'package:diary_ai/provider/settings_provider.dart';
 import 'package:common_utils_services/services/ai_services.dart';
 import 'package:diary_ai/utils/prompt_utils.dart';
+import '../services/diary_service.dart';
 
 class TabDiaryListPage extends StatefulWidget {
   const TabDiaryListPage({Key? key}) : super(key: key);
@@ -19,7 +20,7 @@ class TabDiaryListPage extends StatefulWidget {
 
 class _TabDiaryListPageState extends State<TabDiaryListPage> {
   DateTime _focusedDay = DateTime.now();
-  DateTime? _selectedDay;
+  DateTime? _selectedDay = DateTime.now();
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -35,8 +36,7 @@ class _TabDiaryListPageState extends State<TabDiaryListPage> {
     final diaryProvider = context.read<DiaryProvider>();
     final todayKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
     final todayDiary = diaryProvider.groupedByDate[todayKey];
-    final now = DateTime.now();
-    if (todayDiary != null && now.hour >= 22 && now.hour <= 23) {
+    if (todayDiary != null && canRequestAIFeedback(todayDiary)) {
       if (todayDiary.hasFeedback) {
         // 이미 피드백 받음
         return;
@@ -257,11 +257,14 @@ class _TabDiaryListPageState extends State<TabDiaryListPage> {
                 final idx = sortedDates
                     .indexOf(DateFormat('yyyy-MM-dd').format(selectedDay));
                 if (idx != -1) {
-                  _scrollController.animateTo(
-                    idx * 340.0,
-                    duration: Duration(milliseconds: 400),
-                    curve: Curves.ease,
-                  );
+                  // ScrollController가 연결되어 있을 때만 animateTo 호출
+                  if (_scrollController.hasClients) {
+                    _scrollController.animateTo(
+                      idx * 340.0,
+                      duration: Duration(milliseconds: 400),
+                      curve: Curves.ease,
+                    );
+                  }
                 }
               });
             },
@@ -283,229 +286,262 @@ class _TabDiaryListPageState extends State<TabDiaryListPage> {
                       ],
                     ),
                   )
-                : ListView.builder(
-                    controller: _scrollController,
-                    scrollDirection: Axis.horizontal,
-                    itemCount: sortedDates.length,
-                    itemBuilder: (context, idx) {
-                      final date = sortedDates[idx];
-                      final entry = grouped[date]!;
-                      final dateObj = DateFormat('yyyy-MM-dd').parse(date);
-                      return Container(
-                        width: 320,
-                        margin: EdgeInsets.only(
-                            left: idx == 0 ? 16 : 8,
-                            right: idx == sortedDates.length - 1 ? 16 : 8,
-                            top: 8,
-                            bottom: 24),
+                : (_selectedDay != null &&
+                        _getDiaryForDay(context, _selectedDay!).isEmpty)
+                    ? Center(
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            // 날짜 헤더
-                            Container(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.vertical(
-                                    top: Radius.circular(18)),
-                                gradient: LinearGradient(colors: [
-                                  Colors.purple[500]!,
-                                  Colors.blue[500]!
-                                ]),
-                              ),
-                              padding: EdgeInsets.symmetric(
-                                  horizontal: 20, vertical: 14),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(_formatDateHeader(dateObj),
-                                            style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 16,
-                                                color: Colors.white)),
-                                        SizedBox(height: 2),
-                                        Text(
-                                            DateFormat('yyyy년 M월 d일')
-                                                .format(dateObj),
-                                            style: TextStyle(
-                                                fontSize: 13,
-                                                color: Colors.white
-                                                    .withOpacity(0.8))),
-                                      ],
-                                    ),
-                                  ),
-                                  // AI 답장 아이콘 (우체통/편지)
-                                  GestureDetector(
-                                    onTap: () => _handleAIFeedback(entry),
-                                    child: Container(
-                                      padding: EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: entry.hasFeedback
-                                            ? Colors.yellow.withOpacity(0.3)
-                                            : Colors.white.withOpacity(0.2),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Icon(
-                                        entry.hasFeedback
-                                            ? Icons.mail
-                                            : Icons.local_post_office,
-                                        color: entry.hasFeedback
-                                            ? Colors.yellow[700]
-                                            : Colors.white,
-                                        size: 20,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            // 일기 리스트
-                            Expanded(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.vertical(
-                                      bottom: Radius.circular(18)),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.04),
-                                      blurRadius: 8,
-                                      offset: Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                padding: EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 10),
-                                child: ListView.separated(
-                                  // 최신 방문 순서로 정렬
-                                  itemCount: entry.locationDiaries.length,
-                                  separatorBuilder: (_, __) =>
-                                      SizedBox(height: 10),
-                                  itemBuilder: (context, entryIdx) {
-                                    final sortedLocDiaries =
-                                        List<LocDiaryEntry>.from(
-                                            entry.locationDiaries)
-                                          ..sort((a, b) => b.createdAt
-                                              .compareTo(a.createdAt));
-                                    final locDiary = sortedLocDiaries[entryIdx];
-                                    final location = locDiary.location;
-                                    final place = (location as dynamic).place
-                                        as Map<String, dynamic>?;
-                                    final photos = locDiary.photoPaths;
-                                    return InkWell(
-                                      borderRadius: BorderRadius.circular(14),
-                                      onTap: () => _showDiaryDetail(locDiary),
-                                      child: Container(
-                                        padding: EdgeInsets.all(12),
-                                        decoration: BoxDecoration(
-                                          color: Colors.grey[50],
-                                          borderRadius:
-                                              BorderRadius.circular(14),
-                                        ),
-                                        child: Row(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Container(
-                                              width: 40,
-                                              height: 40,
-                                              decoration: BoxDecoration(
-                                                color: Colors.white,
-                                                shape: BoxShape.circle,
-                                                boxShadow: [
-                                                  BoxShadow(
-                                                    color: Colors.black
-                                                        .withOpacity(0.04),
-                                                    blurRadius: 2,
-                                                    offset: Offset(0, 1),
-                                                  ),
-                                                ],
-                                              ),
-                                              alignment: Alignment.center,
-                                              child: _buildDiaryIcon(place),
-                                            ),
-                                            SizedBox(width: 10),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Row(
-                                                    children: [
-                                                      Expanded(
-                                                        child: Text(
-                                                          place?['name'] ?? '',
-                                                          style: TextStyle(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold,
-                                                              fontSize: 15,
-                                                              color: Colors
-                                                                  .black87),
-                                                          overflow: TextOverflow
-                                                              .ellipsis,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  SizedBox(height: 2),
-                                                  Text(
-                                                      '${DateFormat('HH:mm').format(location.timestamp)} 작성 ',
-                                                      style: TextStyle(
-                                                          fontSize: 12,
-                                                          color: Colors
-                                                              .grey[600])),
-                                                  SizedBox(height: 4),
-                                                  Text(
-                                                    locDiary.content,
-                                                    maxLines: 2,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                    style: TextStyle(
-                                                        fontSize: 12,
-                                                        color:
-                                                            Colors.grey[800]),
-                                                  ),
-                                                  if (photos.isNotEmpty)
-                                                    Padding(
-                                                      padding:
-                                                          const EdgeInsets.only(
-                                                              top: 4.0),
-                                                      child: Row(
-                                                        children: [
-                                                          Icon(Icons.camera_alt,
-                                                              size: 14,
-                                                              color: Colors
-                                                                  .grey[500]),
-                                                          SizedBox(width: 2),
-                                                          Text(
-                                                              '${photos.length}장',
-                                                              style: TextStyle(
-                                                                  fontSize: 11,
-                                                                  color: Colors
-                                                                          .grey[
-                                                                      600])),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
+                            Icon(Icons.info_outline,
+                                size: 48, color: Colors.purple[200]),
+                            SizedBox(height: 12),
+                            Text(
+                              _isToday(_selectedDay!)
+                                  ? '아직 오늘 일기를 작성하지 않았네요.\n일기를 작성해보세요.'
+                                  : '이 날짜에는 작성된 일기가 없습니다',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  fontSize: 16, color: Colors.grey[700]),
                             ),
                           ],
                         ),
-                      );
-                    },
-                  ),
+                      )
+                    : ListView.builder(
+                        controller: _scrollController,
+                        scrollDirection: Axis.horizontal,
+                        itemCount: sortedDates.length,
+                        itemBuilder: (context, idx) {
+                          final date = sortedDates[idx];
+                          final entry = grouped[date]!;
+                          final dateObj = DateFormat('yyyy-MM-dd').parse(date);
+                          return Container(
+                            width: 320,
+                            margin: EdgeInsets.only(
+                                left: idx == 0 ? 16 : 8,
+                                right: idx == sortedDates.length - 1 ? 16 : 8,
+                                top: 8,
+                                bottom: 24),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                // 날짜 헤더
+                                Container(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.vertical(
+                                        top: Radius.circular(18)),
+                                    gradient: LinearGradient(colors: [
+                                      Colors.purple[500]!,
+                                      Colors.blue[500]!
+                                    ]),
+                                  ),
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: 20, vertical: 14),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(_formatDateHeader(dateObj),
+                                                style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 16,
+                                                    color: Colors.white)),
+                                            SizedBox(height: 2),
+                                            Text(
+                                                DateFormat('yyyy년 M월 d일')
+                                                    .format(dateObj),
+                                                style: TextStyle(
+                                                    fontSize: 13,
+                                                    color: Colors.white
+                                                        .withOpacity(0.8))),
+                                          ],
+                                        ),
+                                      ),
+                                      // AI 답장 아이콘 (우체통/편지)
+                                      GestureDetector(
+                                        onTap: () => _handleAIFeedback(entry),
+                                        child: Container(
+                                          padding: EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: entry.hasFeedback
+                                                ? Colors.yellow.withOpacity(0.3)
+                                                : Colors.white.withOpacity(0.2),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          child: Icon(
+                                            entry.hasFeedback
+                                                ? Icons.mail
+                                                : Icons.local_post_office,
+                                            color: entry.hasFeedback
+                                                ? Colors.yellow[700]
+                                                : Colors.white,
+                                            size: 20,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                // 일기 리스트
+                                Expanded(
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.vertical(
+                                          bottom: Radius.circular(18)),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.04),
+                                          blurRadius: 8,
+                                          offset: Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    padding: EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 10),
+                                    child: ListView.separated(
+                                      // 최신 방문 순서로 정렬
+                                      itemCount: entry.locationDiaries.length,
+                                      separatorBuilder: (_, __) =>
+                                          SizedBox(height: 10),
+                                      itemBuilder: (context, entryIdx) {
+                                        final sortedLocDiaries =
+                                            List<LocDiaryEntry>.from(
+                                                entry.locationDiaries)
+                                              ..sort((a, b) => b.createdAt
+                                                  .compareTo(a.createdAt));
+                                        final locDiary =
+                                            sortedLocDiaries[entryIdx];
+                                        final location = locDiary.location;
+                                        final place = (location as dynamic)
+                                            .place as Map<String, dynamic>?;
+                                        final photos = locDiary.photoPaths;
+                                        return InkWell(
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                          onTap: () =>
+                                              _showDiaryDetail(locDiary),
+                                          child: Container(
+                                            padding: EdgeInsets.all(12),
+                                            decoration: BoxDecoration(
+                                              color: Colors.grey[50],
+                                              borderRadius:
+                                                  BorderRadius.circular(14),
+                                            ),
+                                            child: Row(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Container(
+                                                  width: 40,
+                                                  height: 40,
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.white,
+                                                    shape: BoxShape.circle,
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        color: Colors.black
+                                                            .withOpacity(0.04),
+                                                        blurRadius: 2,
+                                                        offset: Offset(0, 1),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  alignment: Alignment.center,
+                                                  child: _buildDiaryIcon(place),
+                                                ),
+                                                SizedBox(width: 10),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Row(
+                                                        children: [
+                                                          Expanded(
+                                                            child: Text(
+                                                              place?['name'] ??
+                                                                  '',
+                                                              style: TextStyle(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                  fontSize: 15,
+                                                                  color: Colors
+                                                                      .black87),
+                                                              overflow:
+                                                                  TextOverflow
+                                                                      .ellipsis,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      SizedBox(height: 2),
+                                                      Text(
+                                                          '${DateFormat('HH:mm').format(location.timestamp)} 작성 ',
+                                                          style: TextStyle(
+                                                              fontSize: 12,
+                                                              color: Colors
+                                                                  .grey[600])),
+                                                      SizedBox(height: 4),
+                                                      Text(
+                                                        locDiary.content,
+                                                        maxLines: 2,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                        style: TextStyle(
+                                                            fontSize: 12,
+                                                            color: Colors
+                                                                .grey[800]),
+                                                      ),
+                                                      if (photos.isNotEmpty)
+                                                        Padding(
+                                                          padding:
+                                                              const EdgeInsets
+                                                                  .only(
+                                                                  top: 4.0),
+                                                          child: Row(
+                                                            children: [
+                                                              Icon(
+                                                                  Icons
+                                                                      .camera_alt,
+                                                                  size: 14,
+                                                                  color: Colors
+                                                                          .grey[
+                                                                      500]),
+                                                              SizedBox(
+                                                                  width: 2),
+                                                              Text(
+                                                                  '${photos.length}장',
+                                                                  style: TextStyle(
+                                                                      fontSize:
+                                                                          11,
+                                                                      color: Colors
+                                                                              .grey[
+                                                                          600])),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
           ),
         ],
       ),
@@ -528,13 +564,39 @@ class _TabDiaryListPageState extends State<TabDiaryListPage> {
     }
   }
 
+  // AI 피드백 요청 가능 여부(22~23시, 작성일이 오늘인지)
+  bool canRequestAIFeedback(DiaryEntry entry) {
+    final now = DateTime.now();
+    final isSameDay = now.year == entry.createdAt.year &&
+        now.month == entry.createdAt.month &&
+        now.day == entry.createdAt.day;
+    return (now.hour >= 22 && now.hour <= 23) && isSameDay;
+  }
+
   void _handleAIFeedback(DiaryEntry entry) {
     if (entry.hasFeedback) {
       // 피드백이 있으면 피드백 내용을 보여줌
       _showAIFeedback(entry);
     } else {
-      // 피드백이 없으면 AI에게 요청
-      _requestAIFeedback(entry);
+      // 피드백이 없으면 시간 제한 확인 후 AI에게 요청
+      if (canRequestAIFeedback(entry)) {
+        _requestAIFeedback(entry);
+      } else {
+        // 시간 제한 외에는 안내 메시지 표시
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('피드백 시간'),
+            content: Text('AI 피드백은 오늘 작성한 일기에 한해 오후 10시~11시에만 요청할 수 있습니다.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text('확인'),
+              ),
+            ],
+          ),
+        );
+      }
     }
   }
 
@@ -686,18 +748,8 @@ class _TabDiaryListPageState extends State<TabDiaryListPage> {
 
     // AI 프롬프트 생성
     final prompt = PromptUtils.buildPrompt(
-      name: characterPreset.name,
-      age: characterPreset.age.toString(),
-      gender: characterPreset.gender,
-      kindness: characterPreset.kindnessLevel,
-      createdAt: entry.createdAt,
-      locationDiaries: entry.locationDiaries
-          .map((loc) => {
-                'locationName': loc.location.placeName,
-                'content': loc.content,
-              })
-          .toList(),
-      photoCount: entry.allPhotoPaths.length,
+      context: context,
+      entry: entry,
     );
 
     // AI 호출
@@ -714,8 +766,23 @@ class _TabDiaryListPageState extends State<TabDiaryListPage> {
     entry.aiFeedback = aiFeedback;
     entry.feedbackCreatedAt = DateTime.now();
     entry.hasFeedback = true;
-    await entry.save();
+
+    // Hive에 직접 저장
+    final diaryService = DiaryService();
+    await diaryService.addDiaryDirect(entry);
+
+    // Provider 데이터 갱신
+    await context.read<DiaryProvider>().loadDiaries();
+
     setState(() {});
     _showAIFeedback(entry);
+  }
+
+  // 오늘 날짜인지 확인하는 함수 추가
+  bool _isToday(DateTime date) {
+    final now = DateTime.now();
+    return date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day;
   }
 }
