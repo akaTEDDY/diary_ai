@@ -51,7 +51,7 @@ class _LocDiaryWritePageState extends State<LocDiaryWritePage> {
   }
 
   Future<void> _checkIfMergedToTodayDiary() async {
-    final diaries = await DiaryService().getAllDiariesGroupedByDateTime();
+    final diaries = await DiaryService().getAllDiariesGroupedByDateKey();
     final todayDiary = LocDiaryService.getTodayDiary(diaries);
     final isAlreadyMerged = LocDiaryService.isLocationAlreadyInDiary(
       widget.location,
@@ -164,7 +164,7 @@ class _LocDiaryWritePageState extends State<LocDiaryWritePage> {
       );
       return;
     }
-    final diaries = await DiaryService().getAllDiariesGroupedByDateTime();
+    final diaries = await DiaryService().getAllDiariesGroupedByDateKey();
     final todayDiary = LocDiaryService.getTodayDiary(diaries);
     final isAlreadyMerged = LocDiaryService.isLocationAlreadyInDiary(
       widget.location,

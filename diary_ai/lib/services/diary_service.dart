@@ -4,30 +4,36 @@ import '../models/diary_entry.dart';
 import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 import '../provider/diary_provider.dart';
+import 'package:intl/intl.dart';
 
 class DiaryService {
   static const String boxName = 'diary_entries';
 
+  /// DiaryEntry 저장/조회/삭제에 사용할 키 생성 (yyyy-MM-dd)
+  static String getDateKey(DateTime date) {
+    return DateFormat('yyyy-MM-dd').format(date);
+  }
+
   Future<void> addDiary(BuildContext context, DiaryEntry entry) async {
     var box = await Hive.openBox<DiaryEntry>(boxName);
-    final dateTimeKey = entry.dateTime;
-    await box.put(dateTimeKey, entry);
+    final dateKey = getDateKey(entry.createdAt);
+    await box.put(dateKey, entry);
     await context.read<DiaryProvider>().addDiary(entry);
   }
 
   Future<void> deleteDiary(
-      BuildContext context, String dateTime, String id) async {
+      BuildContext context, String dateKey, String id) async {
     var box = await Hive.openBox<DiaryEntry>(boxName);
-    await box.delete(dateTime);
+    await box.delete(dateKey);
     await context.read<DiaryProvider>().deleteDiary(id);
   }
 
-  Future<DiaryEntry?> getDiaryByDateTime(String dateTime) async {
+  Future<DiaryEntry?> getDiaryByDateKey(String dateKey) async {
     var box = await Hive.openBox<DiaryEntry>(boxName);
-    return box.get(dateTime);
+    return box.get(dateKey);
   }
 
-  Future<Map<String, DiaryEntry>> getAllDiariesGroupedByDateTime() async {
+  Future<Map<String, DiaryEntry>> getAllDiariesGroupedByDateKey() async {
     var box = await Hive.openBox<DiaryEntry>(boxName);
     Map<String, DiaryEntry> result = {};
     for (var key in box.keys) {
@@ -39,8 +45,8 @@ class DiaryService {
 
   Future<void> addDiaryDirect(DiaryEntry entry) async {
     var box = await Hive.openBox<DiaryEntry>(boxName);
-    final dateTimeKey = entry.dateTime;
-    await box.put(dateTimeKey, entry);
+    final dateKey = getDateKey(entry.createdAt);
+    await box.put(dateKey, entry);
   }
 
   Future<void> deleteDiaryDirect(String id) async {

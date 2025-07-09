@@ -1,4 +1,5 @@
 import 'package:diary_ai/provider/location_diary_provider.dart';
+import 'package:diary_ai/services/diary_service.dart';
 import 'package:flutter/widgets.dart';
 import 'package:hive/hive.dart';
 import 'package:intl/intl.dart';
@@ -9,7 +10,6 @@ import 'package:provider/provider.dart';
 
 class LocDiaryService {
   static const String boxName = 'location_diary_entries';
-  static final DateFormat _dateFormat = DateFormat('yyyy-MM-dd');
   static final DateFormat _timeFormat = DateFormat('HH:mm');
 
   Future<void> addLocDiary(BuildContext context, LocDiaryEntry entry) async {
@@ -20,9 +20,9 @@ class LocDiaryService {
 
   Future<List<LocDiaryEntry>> getLocDiariesForToday() async {
     var box = await Hive.openBox<LocDiaryEntry>(boxName);
-    final todayKey = _dateFormat.format(DateTime.now());
+    final todayKey = DiaryService.getDateKey(DateTime.now());
     return box.values
-        .where((e) => _dateFormat.format(e.createdAt) == todayKey)
+        .where((e) => DiaryService.getDateKey(e.createdAt) == todayKey)
         .toList();
   }
 
@@ -44,7 +44,7 @@ class LocDiaryService {
 
   /// 그룹화된 일기 맵에서 오늘 날짜의 일기만 추출
   static DiaryEntry? getTodayDiary(Map<String, DiaryEntry> groupedDiaries) {
-    final todayKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final todayKey = DiaryService.getDateKey(DateTime.now());
     return groupedDiaries[todayKey];
   }
 

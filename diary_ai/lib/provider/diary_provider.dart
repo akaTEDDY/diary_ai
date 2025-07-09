@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/diary_entry.dart';
 import '../services/diary_service.dart';
-import 'package:intl/intl.dart';
 
 class DiaryProvider extends ChangeNotifier {
   List<DiaryEntry> _diaries = [];
@@ -14,7 +13,7 @@ class DiaryProvider extends ChangeNotifier {
   Map<String, DiaryEntry> get groupedByDate {
     Map<String, DiaryEntry> result = {};
     for (var entry in _diaries) {
-      final dateKey = entry.dateTime.substring(0, 10);
+      final dateKey = DiaryService.getDateKey(entry.createdAt);
       result[dateKey] = entry;
     }
     return result;
@@ -23,7 +22,7 @@ class DiaryProvider extends ChangeNotifier {
   // 오늘 일기만 반환
   DiaryEntry? get todayDiary {
     final now = DateTime.now();
-    final todayKey = DateFormat('yyyy-MM-dd').format(now);
+    final todayKey = DiaryService.getDateKey(now);
     return groupedByDate[todayKey];
   }
 
@@ -33,7 +32,7 @@ class DiaryProvider extends ChangeNotifier {
 
     try {
       final service = DiaryService();
-      final grouped = await service.getAllDiariesGroupedByDateTime();
+      final grouped = await service.getAllDiariesGroupedByDateKey();
       _diaries = grouped.values.toList();
     } catch (e) {
       print('일기 로드 실패: $e');

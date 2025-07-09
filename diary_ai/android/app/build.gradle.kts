@@ -59,6 +59,4 @@ dependencies {
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
     implementation("com.squareup.okhttp3:okhttp:3.14.9")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
-    implementation("androidx.window:window:1.0.0")
-    implementation("androidx.window:window-java:1.0.0")
 }

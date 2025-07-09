@@ -6,7 +6,6 @@ import android.widget.Toast
 import com.example.diary_ai.MainApplication.Companion.eventSink
 import com.google.gson.Gson
 import com.loplat.placeengine.OnPlengiListener
-import com.loplat.placeengine.PlaceEngineBase.showPlaceHistoryActivity
 import com.loplat.placeengine.PlengiListener
 import com.loplat.placeengine.PlengiResponse
 import io.flutter.embedding.android.FlutterActivity
@@ -14,6 +13,9 @@ import io.flutter.embedding.engine.FlutterEngine
 import com.loplat.placeengine.Plengi
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
+import androidx.core.content.edit
+import io.flutter.embedding.engine.dart.DartExecutor
+import io.flutter.view.FlutterCallbackInformation
 
 class MainActivity : FlutterActivity() {
     private val METHOD_CHANNEL = "plengi.ai/fromFlutter"
@@ -31,6 +33,14 @@ class MainActivity : FlutterActivity() {
                 } else if (call.method == "plengiStartStop") {
                     Plengi.getInstance(this).stop()
                     Plengi.getInstance(this).start()
+                } else if (call.method == "saveCallbackHandle") {
+                    val handle = call.argument<Number>("handle")?.toLong() ?: 0L
+                    // SharedPreferences에 저장
+                    getSharedPreferences("background_location_saver", MODE_PRIVATE).edit() {
+                        putLong("callback_handle", handle)
+                    }
+                    println("saveCallbackHandle, handle: " + handle)
+                    result.success(null)
                 } else {
                     result.notImplemented()
                 }
@@ -43,7 +53,32 @@ class MainActivity : FlutterActivity() {
         Plengi.getInstance(this@MainActivity).listener = object : PlengiListener {
             override fun listen(response: PlengiResponse?) {
                 println("EventStreamHandler: PlengiListener listen is called:" + response.toString())
-                eventSink?.success(Gson().toJson(response))
+
+                // 1. FlutterEngine 생성
+                val flutterEngine = FlutterEngine(context.applicationContext)
+
+                val handle = getSharedPreferences("background_location_saver", MODE_PRIVATE).getLong("callback_handle", 0L)
+
+                // 2. Dart entrypoint 정보 준비
+                val callbackInfo = FlutterCallbackInformation.lookupCallbackInformation(
+                    // Dart에서 PluginUtilities.getCallbackHandle(backgroundLocationSaver).toRawHandle()로 얻은 값
+                    handle
+                )
+                val appBundlePath = "flutter_assets"
+                val dartCallback = DartExecutor.DartCallback(
+                    context.assets,
+                    appBundlePath,
+                    callbackInfo
+                )
+
+                println("dartCallback:" + dartCallback)
+
+                // 3. Dart 코드 실행
+                flutterEngine.dartExecutor.executeDartCallback(dartCallback)
+
+                // 4. eventSink 로 결과 전송
+                val json = Gson().toJson(response);
+                eventSink?.success(json)
             }
         }
     }

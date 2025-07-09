@@ -53,25 +53,24 @@ class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
 
   Future<void> _onSaveTodayDiary() async {
     final provider = context.read<LocationDiaryProvider>();
+    final diaryProvider = context.read<DiaryProvider>();
     final selected =
         provider.locDiaries.where((e) => _selectedIds.contains(e.id)).toList();
     if (selected.isEmpty) return;
 
     try {
-      final box = await Hive.openBox<DiaryEntry>(DiaryService.boxName);
       // 1. 선택된 위치 일기들을 날짜별로 그룹화
       final Map<String, List<LocDiaryEntry>> groupedByDate = {};
       for (final locDiary in selected) {
         // 방문일자 기준으로 그룹화
-        final dateKey =
-            DateFormat('yyyy-MM-dd').format(locDiary.location.timestamp);
+        final dateKey = DiaryService.getDateKey(locDiary.location.timestamp);
         groupedByDate.putIfAbsent(dateKey, () => []).add(locDiary);
       }
       // 2. 각 날짜별로 일기 생성/병합
       for (final entry in groupedByDate.entries) {
         final dateKey = entry.key;
         final locDiariesForDate = entry.value;
-        DiaryEntry? diary = box.get(dateKey);
+        DiaryEntry? diary = diaryProvider.groupedByDate[dateKey];
         if (diary != null) {
           final existingIds = diary.locationDiaries.map((e) => e.id).toSet();
           final newLocDiaries = [
@@ -79,14 +78,14 @@ class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
             ...locDiariesForDate.where((e) => !existingIds.contains(e.id)),
           ];
           diary.locationDiaries = newLocDiaries;
-          await diary.save();
+          await diaryProvider.addDiary(diary);
         } else {
           final diaryEntry = DiaryEntry(
             id: Uuid().v4(),
             createdAt: DateFormat('yyyy-MM-dd').parse(dateKey),
             locationDiaries: locDiariesForDate,
           );
-          await box.put(dateKey, diaryEntry);
+          await diaryProvider.addDiary(diaryEntry);
         }
       }
       // 3. 선택된 위치 일기 삭제

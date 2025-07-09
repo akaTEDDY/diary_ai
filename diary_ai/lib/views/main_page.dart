@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ui';
 
 import 'package:common_utils_services/services/notification_service.dart';
 import 'package:common_utils_services/utils/location_utils.dart';
@@ -11,6 +12,11 @@ import 'tab_diary_list_page.dart';
 import 'tab_diary_write_page.dart';
 import 'tab_location_history_page.dart';
 import 'tab_settings.dart';
+
+@pragma('vm:entry-point')
+void backgroundLocationSaver() {
+  print("백그라운드 위치 저장을 위해 일시적으로 엔진 실행");
+}
 
 class MainPage extends StatefulWidget {
   const MainPage({Key? key}) : super(key: key);
@@ -38,11 +44,19 @@ class _MainPageState extends State<MainPage> {
   Future<void> _initializeAsync() async {
     await PermissionUtils.checkAndRequestPermission(context);
     await _notificationService.initialize();
-    await _locationHistoryManager.initialize(50, (location) {
+
+    final handle = PluginUtilities.getCallbackHandle(
+      backgroundLocationSaver,
+    )?.toRawHandle();
+
+    print("handle: $handle");
+
+    await _locationHistoryManager.initialize(50, handle, (location) {
       try {
         // 위치가 업데이트 되었다는 걸 위치 히스토리 탭에 알려줌
-        Provider.of<LocationHistoryUpdateProvider>(context, listen: false).setUpdated(true);
-        
+        Provider.of<LocationHistoryUpdateProvider>(context, listen: false)
+            .setUpdated(true);
+
         final Map<String, dynamic> curLocation = json.decode(location);
         LocationHistory locationHistory = LocationHistory.fromJson(curLocation);
 

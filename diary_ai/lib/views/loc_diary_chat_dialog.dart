@@ -1,12 +1,8 @@
 import 'dart:async';
 
 import 'package:common_utils_services/models/message.dart';
-import 'package:common_utils_services/services/ai_services.dart';
-import 'package:diary_ai/utils/prompt_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:common_utils_services/models/location_history.dart';
-import 'package:provider/provider.dart';
-import '../provider/settings_provider.dart';
 
 class LocDiaryChatDialog extends StatefulWidget {
   final List<String> photoPaths;
