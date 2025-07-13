@@ -67,8 +67,7 @@ class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
       // 오늘의 위치 일기 불러오기
       final todayLocDiaries = await LocDiaryService().getLocDiariesForToday();
       // 오늘의 일기 불러오기
-      final diariesGrouped =
-          await DiaryService().getAllDiariesGroupedByDateKey();
+      final diariesGrouped = await DiaryService().getAllDiariesGroupedByDate();
       final todayDiary = LocDiaryService.getTodayDiary(diariesGrouped);
 
       if (mounted) {

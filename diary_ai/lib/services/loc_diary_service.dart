@@ -43,9 +43,10 @@ class LocDiaryService {
   }
 
   /// 그룹화된 일기 맵에서 오늘 날짜의 일기만 추출
-  static DiaryEntry? getTodayDiary(Map<String, DiaryEntry> groupedDiaries) {
-    final todayKey = DiaryService.getDateKey(DateTime.now());
-    return groupedDiaries[todayKey];
+  static DiaryEntry? getTodayDiary(Map<DateTime, DiaryEntry> groupedDiaries) {
+    final todayDate =
+        DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+    return groupedDiaries[todayDate];
   }
 
   /// 특정 위치 히스토리가 일기(병합 포함)에 이미 포함되어 있는지 확인 (displayName + formattedTime 기준)

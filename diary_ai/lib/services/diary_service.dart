@@ -16,47 +16,50 @@ class DiaryService {
 
   Future<void> addDiary(BuildContext context, DiaryEntry entry) async {
     var box = await Hive.openBox<DiaryEntry>(boxName);
-    final dateKey = getDateKey(entry.createdAt);
-    await box.put(dateKey, entry);
+    await box.put(entry.id, entry);
     await context.read<DiaryProvider>().addDiary(entry);
   }
 
   Future<void> deleteDiary(
       BuildContext context, String dateKey, String id) async {
     var box = await Hive.openBox<DiaryEntry>(boxName);
-    await box.delete(dateKey);
+    await box.delete(id);
     await context.read<DiaryProvider>().deleteDiary(id);
   }
 
   Future<DiaryEntry?> getDiaryByDateKey(String dateKey) async {
     var box = await Hive.openBox<DiaryEntry>(boxName);
-    return box.get(dateKey);
-  }
-
-  Future<Map<String, DiaryEntry>> getAllDiariesGroupedByDateKey() async {
-    var box = await Hive.openBox<DiaryEntry>(boxName);
-    Map<String, DiaryEntry> result = {};
     for (var key in box.keys) {
       final entry = box.get(key);
-      if (entry != null) result[key] = entry;
+      if (entry != null && getDateKey(entry.createdAt) == dateKey) {
+        return entry;
+      }
+    }
+    return null;
+  }
+
+  Future<Map<DateTime, DiaryEntry>> getAllDiariesGroupedByDate() async {
+    var box = await Hive.openBox<DiaryEntry>(boxName);
+    Map<DateTime, DiaryEntry> result = {};
+    for (var key in box.keys) {
+      final entry = box.get(key);
+      if (entry != null) {
+        final dateOnly = DateTime(
+            entry.createdAt.year, entry.createdAt.month, entry.createdAt.day);
+        result[dateOnly] = entry;
+      }
     }
     return result;
   }
 
   Future<void> addDiaryDirect(DiaryEntry entry) async {
     var box = await Hive.openBox<DiaryEntry>(boxName);
-    final dateKey = getDateKey(entry.createdAt);
-    await box.put(dateKey, entry);
+    await box.put(entry.id, entry);
   }
 
   Future<void> deleteDiaryDirect(String id) async {
     var box = await Hive.openBox<DiaryEntry>(boxName);
-    for (var key in box.keys) {
-      final entry = box.get(key);
-      if (entry != null && entry.id == id) {
-        await box.delete(key);
-      }
-    }
+    await box.delete(id);
   }
 
   /// DiaryEntry에서 모든 사진 경로를 추출

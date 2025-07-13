@@ -1,4 +1,5 @@
 import 'package:diary_ai/services/diary_notification_service.dart';
+import 'package:diary_ai/services/workmanager_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../provider/settings_provider.dart';
@@ -198,6 +199,9 @@ class _TabSettingsPageState extends State<TabSettingsPage> {
   bool _diaryReminderEnabled = true;
   bool _feedbackReminderEnabled = true;
 
+  // WorkManager 설정 상태
+  bool _workManagerEnabled = true;
+
   // 초기 설정값 저장
   String _initialAge = '';
   String _initialGender = '';
@@ -206,6 +210,7 @@ class _TabSettingsPageState extends State<TabSettingsPage> {
   TimeOfDay _initialFeedbackReminderTime = const TimeOfDay(hour: 22, minute: 0);
   bool _initialDiaryReminderEnabled = true;
   bool _initialFeedbackReminderEnabled = true;
+  bool _initialWorkManagerEnabled = true;
 
   // 설정 변경 여부 확인
   bool get _hasChanges {
@@ -215,7 +220,8 @@ class _TabSettingsPageState extends State<TabSettingsPage> {
         _diaryReminderTime != _initialDiaryReminderTime ||
         _feedbackReminderTime != _initialFeedbackReminderTime ||
         _diaryReminderEnabled != _initialDiaryReminderEnabled ||
-        _feedbackReminderEnabled != _initialFeedbackReminderEnabled;
+        _feedbackReminderEnabled != _initialFeedbackReminderEnabled ||
+        _workManagerEnabled != _initialWorkManagerEnabled;
   }
 
   @override
@@ -237,6 +243,7 @@ class _TabSettingsPageState extends State<TabSettingsPage> {
         _feedbackReminderTime = settings.feedbackReminderTime;
         _diaryReminderEnabled = settings.diaryReminderEnabled;
         _feedbackReminderEnabled = settings.feedbackReminderEnabled;
+        _workManagerEnabled = settings.workManagerEnabled;
         // 초기값 저장
         _initialAge = _ageController.text;
         _initialGender = _selectedGender;
@@ -245,6 +252,7 @@ class _TabSettingsPageState extends State<TabSettingsPage> {
         _initialFeedbackReminderTime = _feedbackReminderTime;
         _initialDiaryReminderEnabled = _diaryReminderEnabled;
         _initialFeedbackReminderEnabled = _feedbackReminderEnabled;
+        _initialWorkManagerEnabled = _workManagerEnabled;
       });
     });
   }
@@ -273,6 +281,7 @@ class _TabSettingsPageState extends State<TabSettingsPage> {
       feedbackReminderTime: _feedbackReminderTime,
       diaryReminderEnabled: _diaryReminderEnabled,
       feedbackReminderEnabled: _feedbackReminderEnabled,
+      workManagerEnabled: _workManagerEnabled,
     );
     // 알림 설정 저장
     final diaryNotificationService = DiaryNotificationService();
@@ -292,6 +301,13 @@ class _TabSettingsPageState extends State<TabSettingsPage> {
       );
     }
 
+    // WorkManager 설정 적용
+    if (_workManagerEnabled) {
+      WorkManagerService.instance.onAppBackground();
+    } else {
+      WorkManagerService.instance.cancelAllTasks();
+    }
+
     // 초기값 업데이트
     setState(() {
       _initialAge = _ageController.text;
@@ -301,6 +317,7 @@ class _TabSettingsPageState extends State<TabSettingsPage> {
       _initialFeedbackReminderTime = _feedbackReminderTime;
       _initialDiaryReminderEnabled = _diaryReminderEnabled;
       _initialFeedbackReminderEnabled = _feedbackReminderEnabled;
+      _initialWorkManagerEnabled = _workManagerEnabled;
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -343,6 +360,137 @@ class _TabSettingsPageState extends State<TabSettingsPage> {
         ],
       ),
     );
+  }
+
+  void _showExecutionLogsDialog() async {
+    final logs = await WorkManagerService.getExecutionLogs();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.history, color: const Color(0xFF8B5CF6)),
+            const SizedBox(width: 8),
+            const Text('백그라운드 실행 내역'),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 400,
+          child: logs.isEmpty
+              ? const Center(
+                  child: Text(
+                    '아직 실행 내역이 없습니다.',
+                    style: TextStyle(color: Color(0xFF6B7280)),
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: logs.length,
+                  itemBuilder: (context, index) {
+                    final log = logs[index];
+                    final isWorkManager = log.type == 'workmanager';
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isWorkManager
+                            ? const Color(0xFF8B5CF6).withOpacity(0.1)
+                            : const Color(0xFF10B981).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isWorkManager
+                              ? const Color(0xFF8B5CF6).withOpacity(0.3)
+                              : const Color(0xFF10B981).withOpacity(0.3),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                isWorkManager
+                                    ? Icons.schedule
+                                    : Icons.location_on,
+                                size: 16,
+                                color: isWorkManager
+                                    ? const Color(0xFF8B5CF6)
+                                    : const Color(0xFF10B981),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                isWorkManager ? 'WorkManager' : '위치 저장',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: isWorkManager
+                                      ? const Color(0xFF8B5CF6)
+                                      : const Color(0xFF10B981),
+                                ),
+                              ),
+                              const Spacer(),
+                              Text(
+                                _formatDateTime(log.timestamp),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF6B7280),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (log.additionalInfo != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              log.additionalInfo!,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF4A5568),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await WorkManagerService.clearExecutionLogs();
+              Navigator.of(context).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('실행 내역이 삭제되었습니다'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            },
+            child: const Text('내역 삭제'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('닫기'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDateTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inDays > 0) {
+      return '${difference.inDays}일 전';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours}시간 전';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes}분 전';
+    } else {
+      return '방금 전';
+    }
   }
 
   @override
@@ -957,6 +1105,158 @@ class _TabSettingsPageState extends State<TabSettingsPage> {
                                   fontSize: 14, color: Color(0xFF4A5568)),
                             ),
                           ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // WorkManager 설정 카드
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF8B5CF6).withOpacity(0.08),
+                          blurRadius: 20,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                      border: Border.all(
+                        color: const Color(0xFF8B5CF6).withOpacity(0.1),
+                      ),
+                    ),
+                    padding: const EdgeInsets.all(24.0),
+                    margin: const EdgeInsets.only(bottom: 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF8B5CF6).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                Icons.schedule,
+                                color: const Color(0xFF8B5CF6),
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Text('백그라운드 실행 설정',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 18,
+                                    color: Color(0xFF2D3748))),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+
+                        // WorkManager 활성화 설정
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Switch(
+                                  value: _workManagerEnabled,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _workManagerEnabled = value;
+                                    });
+                                  },
+                                  activeColor: const Color(0xFF8B5CF6),
+                                ),
+                                const SizedBox(width: 8),
+                                const Text('앱 백그라운드 실행',
+                                    style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF2D3748))),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '앱이 백그라운드에 있거나 종료된 상태에서도 주기적으로 실행됩니다',
+                              style: const TextStyle(
+                                  fontSize: 14, color: Color(0xFF4A5568)),
+                            ),
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF7FAFC),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: const Color(0xFFE2E8F0),
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.info_outline,
+                                        size: 16,
+                                        color: const Color(0xFF8B5CF6),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      const Text(
+                                        '실행 정보',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF2D3748),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    '• 15분마다 백그라운드에서 실행\n'
+                                    '• 앱이 포그라운드에 있을 때는 자동 중지\n'
+                                    '• 인터넷 연결 시에만 실행',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF4A5568),
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // 실행 내역 확인 버튼
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: () => _showExecutionLogsDialog(),
+                            icon: Icon(Icons.history, size: 18),
+                            label: Text('실행 내역 확인'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor:
+                                  const Color(0xFF8B5CF6).withOpacity(0.1),
+                              foregroundColor: const Color(0xFF8B5CF6),
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                side: BorderSide(
+                                  color:
+                                      const Color(0xFF8B5CF6).withOpacity(0.3),
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
                       ],
                     ),

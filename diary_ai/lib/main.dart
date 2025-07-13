@@ -1,7 +1,9 @@
 import 'package:common_utils_services/models/location_history.dart';
 import 'package:diary_ai/models/loc_diary_entry.dart';
+import 'package:diary_ai/models/background_execution_log.dart';
 import 'package:diary_ai/provider/location_diary_provider.dart';
 import 'package:diary_ai/services/diary_notification_service.dart';
+import 'package:diary_ai/services/workmanager_service.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'models/diary_entry.dart';
@@ -19,10 +21,14 @@ void main() async {
   Hive.registerAdapter(DiaryEntryAdapter());
   Hive.registerAdapter(LocDiaryEntryAdapter());
   Hive.registerAdapter(LocationHistoryAdapter());
+  Hive.registerAdapter(BackgroundExecutionLogAdapter());
 
   // 알림 서비스 초기화
   final diaryNotificationService = DiaryNotificationService();
   await diaryNotificationService.initialize();
+
+  // WorkManager 서비스 초기화
+  await WorkManagerService.instance.initialize();
 
   runApp(
     MultiProvider(

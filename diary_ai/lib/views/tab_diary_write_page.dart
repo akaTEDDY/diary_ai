@@ -9,7 +9,6 @@ import '../services/diary_service.dart';
 import 'package:uuid/uuid.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:hive/hive.dart';
 
 class TabDiaryWritePage extends StatefulWidget {
   const TabDiaryWritePage({Key? key}) : super(key: key);
@@ -60,17 +59,21 @@ class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
 
     try {
       // 1. 선택된 위치 일기들을 날짜별로 그룹화
-      final Map<String, List<LocDiaryEntry>> groupedByDate = {};
+      final Map<DateTime, List<LocDiaryEntry>> groupedByDate = {};
       for (final locDiary in selected) {
-        // 방문일자 기준으로 그룹화
-        final dateKey = DiaryService.getDateKey(locDiary.location.timestamp);
-        groupedByDate.putIfAbsent(dateKey, () => []).add(locDiary);
+        // 방문일자 기준으로 그룹화 (날짜만 추출)
+        final visitDate = DateTime(
+          locDiary.location.timestamp.year,
+          locDiary.location.timestamp.month,
+          locDiary.location.timestamp.day,
+        );
+        groupedByDate.putIfAbsent(visitDate, () => []).add(locDiary);
       }
       // 2. 각 날짜별로 일기 생성/병합
       for (final entry in groupedByDate.entries) {
-        final dateKey = entry.key;
+        final visitDate = entry.key;
         final locDiariesForDate = entry.value;
-        DiaryEntry? diary = diaryProvider.groupedByDate[dateKey];
+        DiaryEntry? diary = diaryProvider.groupedByDate[visitDate];
         if (diary != null) {
           final existingIds = diary.locationDiaries.map((e) => e.id).toSet();
           final newLocDiaries = [
@@ -82,7 +85,7 @@ class _TabDiaryWritePageState extends State<TabDiaryWritePage> {
         } else {
           final diaryEntry = DiaryEntry(
             id: Uuid().v4(),
-            createdAt: DateFormat('yyyy-MM-dd').parse(dateKey),
+            createdAt: visitDate,
             locationDiaries: locDiariesForDate,
           );
           await diaryProvider.addDiary(diaryEntry);

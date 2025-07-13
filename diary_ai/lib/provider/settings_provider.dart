@@ -91,6 +91,7 @@ class SettingsProvider extends ChangeNotifier {
   TimeOfDay _feedbackReminderTime = const TimeOfDay(hour: 22, minute: 0);
   bool _diaryReminderEnabled = true;
   bool _feedbackReminderEnabled = true;
+  bool _workManagerEnabled = true;
 
   CharacterPresetData get characterPreset => _characterPreset;
   int get age => _age;
@@ -99,6 +100,7 @@ class SettingsProvider extends ChangeNotifier {
   TimeOfDay get feedbackReminderTime => _feedbackReminderTime;
   bool get diaryReminderEnabled => _diaryReminderEnabled;
   bool get feedbackReminderEnabled => _feedbackReminderEnabled;
+  bool get workManagerEnabled => _workManagerEnabled;
 
   SettingsProvider() {
     _loadSettings();
@@ -112,6 +114,7 @@ class SettingsProvider extends ChangeNotifier {
     required TimeOfDay feedbackReminderTime,
     required bool diaryReminderEnabled,
     required bool feedbackReminderEnabled,
+    required bool workManagerEnabled,
   }) async {
     _characterPreset = characterPreset;
     _age = age;
@@ -120,6 +123,7 @@ class SettingsProvider extends ChangeNotifier {
     _feedbackReminderTime = feedbackReminderTime;
     _diaryReminderEnabled = diaryReminderEnabled;
     _feedbackReminderEnabled = feedbackReminderEnabled;
+    _workManagerEnabled = workManagerEnabled;
     notifyListeners();
 
     final box = await Hive.openBox(boxName);
@@ -131,6 +135,7 @@ class SettingsProvider extends ChangeNotifier {
         'feedbackReminderTime', _encodeTimeOfDay(feedbackReminderTime));
     await box.put('diaryReminderEnabled', diaryReminderEnabled);
     await box.put('feedbackReminderEnabled', feedbackReminderEnabled);
+    await box.put('workManagerEnabled', workManagerEnabled);
   }
 
   Future<void> _loadSettings() async {
@@ -142,6 +147,7 @@ class SettingsProvider extends ChangeNotifier {
     final feedbackTime = box.get('feedbackReminderTime') as String?;
     final diaryEnabled = box.get('diaryReminderEnabled') as bool?;
     final feedbackEnabled = box.get('feedbackReminderEnabled') as bool?;
+    final workManagerEnabled = box.get('workManagerEnabled') as bool?;
 
     _characterPreset = id != null
         ? _characterPresets.firstWhere(
@@ -159,6 +165,7 @@ class SettingsProvider extends ChangeNotifier {
         : const TimeOfDay(hour: 22, minute: 0);
     _diaryReminderEnabled = diaryEnabled ?? true;
     _feedbackReminderEnabled = feedbackEnabled ?? true;
+    _workManagerEnabled = workManagerEnabled ?? true;
     notifyListeners();
   }
 

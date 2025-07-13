@@ -28,6 +28,24 @@ class DiaryEntry extends HiveObject {
     this.hasFeedback = false,
   });
 
+  factory DiaryEntry.fromJson(Map<String, dynamic> json) {
+    return DiaryEntry(
+      id: json['id'] as String? ?? '',
+      createdAt: json['createdAt'] != null
+          ? DateTime.tryParse(json['createdAt']) ?? DateTime.now()
+          : DateTime.now(),
+      locationDiaries: (json['locationDiaries'] as List?)
+              ?.map((e) => LocDiaryEntry.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      aiFeedback: json['aiFeedback'] as String?,
+      feedbackCreatedAt: json['feedbackCreatedAt'] != null
+          ? DateTime.tryParse(json['feedbackCreatedAt'])
+          : null,
+      hasFeedback: json['hasFeedback'] == true,
+    );
+  }
+
   String get dateTime => DateFormat('yyyy-MM-dd HH:mm').format(createdAt);
 
   // 모든 사진 경로를 가져오는 getter

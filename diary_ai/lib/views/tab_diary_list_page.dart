@@ -34,8 +34,9 @@ class _TabDiaryListPageState extends State<TabDiaryListPage> {
 
   void _requestAIFeedbackIfNeeded() {
     final diaryProvider = context.read<DiaryProvider>();
-    final todayKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    final todayDiary = diaryProvider.groupedByDate[todayKey];
+    final todayDate =
+        DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+    final todayDiary = diaryProvider.groupedByDate[todayDate];
     if (todayDiary != null && canRequestAIFeedback(todayDiary)) {
       if (todayDiary.hasFeedback) {
         // 이미 피드백 받음
@@ -48,19 +49,19 @@ class _TabDiaryListPageState extends State<TabDiaryListPage> {
   DiaryEntry? _getDiaryForDayEntry(BuildContext context, DateTime day) {
     final diaryProvider = context.watch<DiaryProvider>();
     final grouped = diaryProvider.groupedByDate;
-    final key = DateFormat('yyyy-MM-dd').format(day);
-    return grouped[key];
+    final dayDate = DateTime(day.year, day.month, day.day);
+    return grouped[dayDate];
   }
 
-  Map<String, DiaryEntry> _getGroupedDiaries(BuildContext context) {
+  Map<DateTime, DiaryEntry> _getGroupedDiaries(BuildContext context) {
     final diaryProvider = context.watch<DiaryProvider>();
     return diaryProvider.groupedByDate;
   }
 
-  List<String> _getSortedDates(Map<String, DiaryEntry> grouped) {
-    final keys = grouped.keys.toList();
-    keys.sort((a, b) => b.compareTo(a));
-    return keys;
+  List<DateTime> _getSortedDates(Map<DateTime, DiaryEntry> grouped) {
+    final dates = grouped.keys.toList();
+    dates.sort((a, b) => b.compareTo(a));
+    return dates;
   }
 
   List<DiaryEntry> _getDiaryForDay(BuildContext context, DateTime day) {
@@ -254,8 +255,8 @@ class _TabDiaryListPageState extends State<TabDiaryListPage> {
                 _selectedDay = selectedDay;
                 _focusedDay = focusedDay;
                 // 가로 스크롤 카드로 이동
-                final idx = sortedDates
-                    .indexOf(DateFormat('yyyy-MM-dd').format(selectedDay));
+                final idx =
+                    sortedDates.indexWhere((d) => isSameDay(d, selectedDay));
                 if (idx != -1) {
                   // ScrollController가 연결되어 있을 때만 animateTo 호출
                   if (_scrollController.hasClients) {
@@ -311,9 +312,8 @@ class _TabDiaryListPageState extends State<TabDiaryListPage> {
                         scrollDirection: Axis.horizontal,
                         itemCount: sortedDates.length,
                         itemBuilder: (context, idx) {
-                          final date = sortedDates[idx];
-                          final entry = grouped[date]!;
-                          final dateObj = DateFormat('yyyy-MM-dd').parse(date);
+                          final dateObj = sortedDates[idx];
+                          final entry = grouped[dateObj]!;
                           return Container(
                             width: 320,
                             margin: EdgeInsets.only(

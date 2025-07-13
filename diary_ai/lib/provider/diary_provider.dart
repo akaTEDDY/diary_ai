@@ -10,11 +10,12 @@ class DiaryProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
 
   // 날짜별 그룹핑 getter
-  Map<String, DiaryEntry> get groupedByDate {
-    Map<String, DiaryEntry> result = {};
+  Map<DateTime, DiaryEntry> get groupedByDate {
+    Map<DateTime, DiaryEntry> result = {};
     for (var entry in _diaries) {
-      final dateKey = DiaryService.getDateKey(entry.createdAt);
-      result[dateKey] = entry;
+      final dateOnly = DateTime(
+          entry.createdAt.year, entry.createdAt.month, entry.createdAt.day);
+      result[dateOnly] = entry;
     }
     return result;
   }
@@ -22,8 +23,8 @@ class DiaryProvider extends ChangeNotifier {
   // 오늘 일기만 반환
   DiaryEntry? get todayDiary {
     final now = DateTime.now();
-    final todayKey = DiaryService.getDateKey(now);
-    return groupedByDate[todayKey];
+    final todayDate = DateTime(now.year, now.month, now.day);
+    return groupedByDate[todayDate];
   }
 
   Future<void> loadDiaries() async {
@@ -32,7 +33,7 @@ class DiaryProvider extends ChangeNotifier {
 
     try {
       final service = DiaryService();
-      final grouped = await service.getAllDiariesGroupedByDateKey();
+      final grouped = await service.getAllDiariesGroupedByDate();
       _diaries = grouped.values.toList();
     } catch (e) {
       print('일기 로드 실패: $e');
