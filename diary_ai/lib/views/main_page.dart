@@ -16,6 +16,7 @@ import 'tab_settings.dart';
 
 @pragma('vm:entry-point')
 void backgroundLocationSaver() {
+  WidgetsFlutterBinding.ensureInitialized();
   print("백그라운드 위치 저장을 위해 일시적으로 엔진 실행");
 
   // 실행 내역 저장
