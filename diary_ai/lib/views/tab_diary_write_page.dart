@@ -5,7 +5,6 @@ import 'dart:io';
 import '../models/loc_diary_entry.dart';
 import '../models/diary_entry.dart';
 import '../services/loc_diary_service.dart';
-import '../services/diary_service.dart';
 import 'package:uuid/uuid.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';

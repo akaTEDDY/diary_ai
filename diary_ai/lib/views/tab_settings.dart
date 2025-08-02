@@ -1,5 +1,6 @@
 import 'package:diary_ai/services/diary_notification_service.dart';
-import 'package:diary_ai/services/workmanager_service.dart';
+import 'package:diary_ai/services/native_data_service.dart';
+import 'package:diary_ai/services/flutter_parsing_error_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../provider/settings_provider.dart';
@@ -301,13 +302,6 @@ class _TabSettingsPageState extends State<TabSettingsPage> {
       );
     }
 
-    // WorkManager 설정 적용
-    if (_workManagerEnabled) {
-      WorkManagerService.instance.onAppBackground();
-    } else {
-      WorkManagerService.instance.cancelAllTasks();
-    }
-
     // 초기값 업데이트
     setState(() {
       _initialAge = _ageController.text;
@@ -363,7 +357,7 @@ class _TabSettingsPageState extends State<TabSettingsPage> {
   }
 
   void _showExecutionLogsDialog() async {
-    final logs = await WorkManagerService.getExecutionLogs();
+    final logs = await NativeDataService.getExecutionLogs();
 
     showDialog(
       context: context,
@@ -372,7 +366,7 @@ class _TabSettingsPageState extends State<TabSettingsPage> {
           children: [
             Icon(Icons.history, color: const Color(0xFF8B5CF6)),
             const SizedBox(width: 8),
-            const Text('백그라운드 실행 내역'),
+            const Text('실행 내역'),
           ],
         ),
         content: SizedBox(
@@ -381,7 +375,7 @@ class _TabSettingsPageState extends State<TabSettingsPage> {
           child: logs.isEmpty
               ? const Center(
                   child: Text(
-                    '아직 실행 내역이 없습니다.',
+                    '실행 내역이 없습니다.',
                     style: TextStyle(color: Color(0xFF6B7280)),
                   ),
                 )
@@ -389,20 +383,22 @@ class _TabSettingsPageState extends State<TabSettingsPage> {
                   itemCount: logs.length,
                   itemBuilder: (context, index) {
                     final log = logs[index];
-                    final isWorkManager = log.type == 'workmanager';
+                    final timestamp = DateTime.fromMillisecondsSinceEpoch(
+                        log['timestamp'] ?? 0);
+                    final success = log['success'] ?? true;
 
                     return Container(
                       margin: const EdgeInsets.only(bottom: 8),
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: isWorkManager
+                        color: success
                             ? const Color(0xFF8B5CF6).withOpacity(0.1)
-                            : const Color(0xFF10B981).withOpacity(0.1),
+                            : const Color(0xFFEF4444).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: isWorkManager
+                          color: success
                               ? const Color(0xFF8B5CF6).withOpacity(0.3)
-                              : const Color(0xFF10B981).withOpacity(0.3),
+                              : const Color(0xFFEF4444).withOpacity(0.3),
                         ),
                       ),
                       child: Column(
@@ -411,27 +407,26 @@ class _TabSettingsPageState extends State<TabSettingsPage> {
                           Row(
                             children: [
                               Icon(
-                                isWorkManager
-                                    ? Icons.schedule
-                                    : Icons.location_on,
+                                success ? Icons.check_circle : Icons.error,
                                 size: 16,
-                                color: isWorkManager
+                                color: success
                                     ? const Color(0xFF8B5CF6)
-                                    : const Color(0xFF10B981),
+                                    : const Color(0xFFEF4444),
                               ),
                               const SizedBox(width: 8),
-                              Text(
-                                isWorkManager ? 'WorkManager' : '위치 저장',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: isWorkManager
-                                      ? const Color(0xFF8B5CF6)
-                                      : const Color(0xFF10B981),
+                              Expanded(
+                                child: Text(
+                                  log['action'] ?? '알 수 없는 액션',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: success
+                                        ? const Color(0xFF8B5CF6)
+                                        : const Color(0xFFEF4444),
+                                  ),
                                 ),
                               ),
-                              const Spacer(),
                               Text(
-                                _formatDateTime(log.timestamp),
+                                _formatDateTime(timestamp),
                                 style: const TextStyle(
                                   fontSize: 12,
                                   color: Color(0xFF6B7280),
@@ -439,13 +434,23 @@ class _TabSettingsPageState extends State<TabSettingsPage> {
                               ),
                             ],
                           ),
-                          if (log.additionalInfo != null) ...[
+                          if (log['details'] != null) ...[
                             const SizedBox(height: 4),
                             Text(
-                              log.additionalInfo!,
+                              log['details'],
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: Color(0xFF4A5568),
+                              ),
+                            ),
+                          ],
+                          if (log['errorMessage'] != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              '오류: ${log['errorMessage']}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFFEF4444),
                               ),
                             ),
                           ],
@@ -458,7 +463,7 @@ class _TabSettingsPageState extends State<TabSettingsPage> {
         actions: [
           TextButton(
             onPressed: () async {
-              await WorkManagerService.clearExecutionLogs();
+              await NativeDataService.clearAllData();
               Navigator.of(context).pop();
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
@@ -475,6 +480,395 @@ class _TabSettingsPageState extends State<TabSettingsPage> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showNativeDataDialog() async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.storage, color: const Color(0xFF10B981)),
+            const SizedBox(width: 8),
+            const Text('네이티브 데이터'),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 500,
+          child: FutureBuilder<Map<String, dynamic>>(
+            future: NativeDataService.getAllData(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              if (snapshot.hasError) {
+                return Center(
+                  child: Text(
+                    '데이터 로드 중 오류가 발생했습니다: ${snapshot.error}',
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                );
+              }
+
+              final data = snapshot.data!;
+              final locationHistory = data['locationHistory'] as List<dynamic>;
+              final executionLogs = data['executionLogs'] as List<dynamic>;
+              final stats = data['stats'] as String;
+
+              return DefaultTabController(
+                length: 3,
+                child: Column(
+                  children: [
+                    // 통계 정보
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF10B981).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info,
+                              color: const Color(0xFF10B981), size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              stats,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF10B981),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // 탭 바
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: TabBar(
+                        labelColor: const Color(0xFF10B981),
+                        unselectedLabelColor: Colors.grey[600],
+                        indicator: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        tabs: const [
+                          Tab(text: '위치 히스토리'),
+                          Tab(text: '실행 로그'),
+                          Tab(text: '실패 로그'),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // 탭 내용
+                    Expanded(
+                      child: TabBarView(
+                        children: [
+                          // 위치 히스토리 탭
+                          _buildLocationHistoryTab(locationHistory),
+
+                          // 실행 로그 탭
+                          _buildExecutionLogsTab(executionLogs),
+
+                          // 실패 로그 탭
+                          _buildFailedLogsTab(executionLogs),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              final result = await NativeDataService.clearAllData();
+              Navigator.of(context).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(result),
+                  backgroundColor: const Color(0xFF10B981),
+                ),
+              );
+            },
+            child: const Text('데이터 초기화'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('닫기'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLocationHistoryTab(List<dynamic> locationHistory) {
+    if (locationHistory.isEmpty) {
+      return const Center(
+        child: Text(
+          '위치 히스토리가 없습니다.',
+          style: TextStyle(color: Color(0xFF6B7280)),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      itemCount: locationHistory.length,
+      itemBuilder: (context, index) {
+        final entry = locationHistory[index];
+        final timestamp =
+            DateTime.fromMillisecondsSinceEpoch(entry['timestamp'] ?? 0);
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF10B981).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: const Color(0xFF10B981).withOpacity(0.3),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.location_on,
+                      color: const Color(0xFF10B981), size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      entry['placeName'] ?? '알 수 없는 장소',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF10B981),
+                      ),
+                    ),
+                  ),
+                  Text(
+                    _formatDateTime(timestamp),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF6B7280),
+                    ),
+                  ),
+                ],
+              ),
+              if (entry['address'] != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  entry['address'],
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF4A5568),
+                  ),
+                ),
+              ],
+              if (entry['confidence'] != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  '신뢰도: ${(entry['confidence'] * 100).toStringAsFixed(1)}%',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildExecutionLogsTab(List<dynamic> executionLogs) {
+    if (executionLogs.isEmpty) {
+      return const Center(
+        child: Text(
+          '실행 로그가 없습니다.',
+          style: TextStyle(color: Color(0xFF6B7280)),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      itemCount: executionLogs.length,
+      itemBuilder: (context, index) {
+        final log = executionLogs[index];
+        final timestamp =
+            DateTime.fromMillisecondsSinceEpoch(log['timestamp'] ?? 0);
+        final success = log['success'] ?? true;
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: success
+                ? const Color(0xFF10B981).withOpacity(0.1)
+                : const Color(0xFFEF4444).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: success
+                  ? const Color(0xFF10B981).withOpacity(0.3)
+                  : const Color(0xFFEF4444).withOpacity(0.3),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    success ? Icons.check_circle : Icons.error,
+                    color: success
+                        ? const Color(0xFF10B981)
+                        : const Color(0xFFEF4444),
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      log['action'] ?? '알 수 없는 액션',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: success
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFFEF4444),
+                      ),
+                    ),
+                  ),
+                  Text(
+                    _formatDateTime(timestamp),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF6B7280),
+                    ),
+                  ),
+                ],
+              ),
+              if (log['details'] != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  log['details'],
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF4A5568),
+                  ),
+                ),
+              ],
+              if (log['errorMessage'] != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  '오류: ${log['errorMessage']}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFFEF4444),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildFailedLogsTab(List<dynamic> executionLogs) {
+    final failedLogs = executionLogs
+        .where((log) => (log['success'] ?? true) == false)
+        .toList();
+
+    if (failedLogs.isEmpty) {
+      return const Center(
+        child: Text(
+          '실패한 로그가 없습니다.',
+          style: TextStyle(color: Color(0xFF6B7280)),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      itemCount: failedLogs.length,
+      itemBuilder: (context, index) {
+        final log = failedLogs[index];
+        final timestamp =
+            DateTime.fromMillisecondsSinceEpoch(log['timestamp'] ?? 0);
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEF4444).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: const Color(0xFFEF4444).withOpacity(0.3),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.error, color: const Color(0xFFEF4444), size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      log['action'] ?? '알 수 없는 액션',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFEF4444),
+                      ),
+                    ),
+                  ),
+                  Text(
+                    _formatDateTime(timestamp),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF6B7280),
+                    ),
+                  ),
+                ],
+              ),
+              if (log['details'] != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  log['details'],
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF4A5568),
+                  ),
+                ),
+              ],
+              if (log['errorMessage'] != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  '오류: ${log['errorMessage']}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFFEF4444),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -1156,107 +1550,101 @@ class _TabSettingsPageState extends State<TabSettingsPage> {
                         ),
                         const SizedBox(height: 20),
 
-                        // WorkManager 활성화 설정
+                        // 디버깅 버튼들
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              children: [
-                                Switch(
-                                  value: _workManagerEnabled,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      _workManagerEnabled = value;
-                                    });
-                                  },
-                                  activeColor: const Color(0xFF8B5CF6),
-                                ),
-                                const SizedBox(width: 8),
-                                const Text('앱 백그라운드 실행',
-                                    style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                        color: Color(0xFF2D3748))),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '앱이 백그라운드에 있거나 종료된 상태에서도 주기적으로 실행됩니다',
-                              style: const TextStyle(
-                                  fontSize: 14, color: Color(0xFF4A5568)),
+                            const Text(
+                              '디버깅 도구',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF2D3748),
+                              ),
                             ),
                             const SizedBox(height: 12),
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF7FAFC),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: const Color(0xFFE2E8F0),
-                                ),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        Icons.info_outline,
-                                        size: 16,
-                                        color: const Color(0xFF8B5CF6),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      const Text(
-                                        '실행 정보',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: Color(0xFF2D3748),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  const Text(
-                                    '• 15분마다 백그라운드에서 실행\n'
-                                    '• 앱이 포그라운드에 있을 때는 자동 중지\n'
-                                    '• 인터넷 연결 시에만 실행',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Color(0xFF4A5568),
-                                      height: 1.4,
+
+                            // 실행 내역 확인 버튼
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: () => _showExecutionLogsDialog(),
+                                icon: Icon(Icons.history, size: 18),
+                                label: Text('실행 내역 확인'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor:
+                                      const Color(0xFF8B5CF6).withOpacity(0.1),
+                                  foregroundColor: const Color(0xFF8B5CF6),
+                                  elevation: 0,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    side: BorderSide(
+                                      color: const Color(0xFF8B5CF6)
+                                          .withOpacity(0.3),
                                     ),
                                   ),
-                                ],
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 12),
+
+                            // 네이티브 데이터 확인 버튼
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: () => _showNativeDataDialog(),
+                                icon: Icon(Icons.storage, size: 18),
+                                label: Text('네이티브 데이터 확인'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor:
+                                      const Color(0xFF10B981).withOpacity(0.1),
+                                  foregroundColor: const Color(0xFF10B981),
+                                  elevation: 0,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    side: BorderSide(
+                                      color: const Color(0xFF10B981)
+                                          .withOpacity(0.3),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 12),
+
+                            // 플러터 파싱 에러 확인 버튼
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: () =>
+                                    _showFlutterParsingErrorsDialog(),
+                                icon: Icon(Icons.bug_report, size: 18),
+                                label: Text(
+                                    '플러터 파싱 에러 확인 (${FlutterParsingErrorService().errorCount})'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor:
+                                      const Color(0xFFFF6B35).withOpacity(0.1),
+                                  foregroundColor: const Color(0xFFFF6B35),
+                                  elevation: 0,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    side: BorderSide(
+                                      color: const Color(0xFFFF6B35)
+                                          .withOpacity(0.3),
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
                           ],
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        // 실행 내역 확인 버튼
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: () => _showExecutionLogsDialog(),
-                            icon: Icon(Icons.history, size: 18),
-                            label: Text('실행 내역 확인'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  const Color(0xFF8B5CF6).withOpacity(0.1),
-                              foregroundColor: const Color(0xFF8B5CF6),
-                              elevation: 0,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                side: BorderSide(
-                                  color:
-                                      const Color(0xFF8B5CF6).withOpacity(0.3),
-                                ),
-                              ),
-                            ),
-                          ),
                         ),
                       ],
                     ),
@@ -1310,6 +1698,122 @@ class _TabSettingsPageState extends State<TabSettingsPage> {
                 ),
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showFlutterParsingErrorsDialog() async {
+    final errors = FlutterParsingErrorService().getRecentErrors();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.bug_report, color: const Color(0xFFFF6B35)),
+            const SizedBox(width: 8),
+            const Text('플러터 파싱 에러'),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 400,
+          child: errors.isEmpty
+              ? const Center(
+                  child: Text(
+                    '플러터 파싱 에러가 없습니다.',
+                    style: TextStyle(color: Color(0xFF6B7280)),
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: errors.length,
+                  itemBuilder: (context, index) {
+                    final error = errors[index];
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFF6B35).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: const Color(0xFFFF6B35).withOpacity(0.3),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.code,
+                                size: 16,
+                                color: const Color(0xFFFF6B35),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '플러터 파싱 에러: ${error.errorType}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFFFF6B35),
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                _formatDateTime(error.timestamp),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF6B7280),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (error.dataContext != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              '데이터: ${error.dataContext}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF4A5568),
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 4),
+                          Text(
+                            '오류: ${error.errorMessage}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFFFF6B35),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              FlutterParsingErrorService().clearAllErrors();
+              Navigator.of(context).pop();
+              setState(() {}); // UI 업데이트
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('플러터 파싱 에러가 모두 삭제되었습니다.'),
+                  backgroundColor: Color(0xFFFF6B35),
+                ),
+              );
+            },
+            child: const Text('모두 삭제'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('닫기'),
           ),
         ],
       ),

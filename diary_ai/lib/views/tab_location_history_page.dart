@@ -1,6 +1,6 @@
 import 'package:common_utils_services/models/location_history.dart';
-import 'package:common_utils_services/utils/location_utils.dart';
 import 'package:diary_ai/provider/location_history_update_provider.dart';
+import 'package:diary_ai/services/native_location_history_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -11,12 +11,13 @@ import 'package:diary_ai/services/loc_diary_service.dart';
 import '../models/loc_diary_entry.dart';
 import '../services/diary_service.dart';
 import '../models/diary_entry.dart';
+import 'dart:async';
 
 class TabLocationHistoryPage extends StatefulWidget {
-  final LocationHistoryManager _locationHistoryManager;
+  // final LocationHistoryManager _locationHistoryManager;
 
-  const TabLocationHistoryPage(this._locationHistoryManager, {Key? key})
-      : super(key: key);
+  // const TabLocationHistoryPage(this._locationHistoryManager, {Key? key})
+  //     : super(key: key);
 
   @override
   State<TabLocationHistoryPage> createState() => _TabLocationHistoryPageState();
@@ -28,11 +29,35 @@ class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
   List<LocDiaryEntry> _todayLocDiaries = [];
   DiaryEntry? _todayDiary;
   final platform = MethodChannel('plengi.ai/fromFlutter');
+  final EventChannel _eventChannel = EventChannel('plengi.ai/toFlutter');
+  final NativeLocationHistoryService _nativeLocationHistoryService =
+      NativeLocationHistoryService();
+  StreamSubscription? _eventSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadLocationHistory();
+    _setupEventChannel();
+  }
+
+  @override
+  void dispose() {
+    _eventSubscription?.cancel();
+    super.dispose();
+  }
+
+  void _setupEventChannel() {
+    _eventSubscription = _eventChannel.receiveBroadcastStream().listen((event) {
+      print('TabLocationHistoryPage: Received event: $event');
+      if (event == 'location_history_updated') {
+        print(
+            'TabLocationHistoryPage: Location history updated, refreshing...');
+        _loadLocationHistory();
+      }
+    }, onError: (error) {
+      print('TabLocationHistoryPage: EventChannel error: $error');
+    });
   }
 
   @override
@@ -55,15 +80,55 @@ class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
       _isLoading = true;
     });
     try {
-      var currentHistory = widget._locationHistoryManager.locationHistory;
-      // accuracy < threshold 조건을 만족하는 히스토리만 남김
-      currentHistory = currentHistory.where((locationHistory) {
-        final place = locationHistory.place;
-        if (place == null) return false;
-        final accuracy = place["accuracy"];
-        if (accuracy == null) return false;
-        return accuracy >= 0.3;
-      }).toList();
+      print('TabLocationHistoryPage: Starting to load location history...');
+
+      // 네이티브에서 위치 히스토리 로드
+      final nativeLocationHistory =
+          await _nativeLocationHistoryService.loadLocationHistory();
+      print(
+          'TabLocationHistoryPage: Loaded ${nativeLocationHistory.length} entries from native');
+
+      // 기존 플러터 위치 히스토리와 병합
+      // var currentHistory = widget._locationHistoryManager.locationHistory;
+      // print(
+      //     'TabLocationHistoryPage: Found ${currentHistory.length} entries from existing Flutter data');
+
+      // accuracy가 0.3 이상인 히스토리만 남김 (기존 플러터 데이터)
+      // currentHistory = currentHistory.where((locationHistory) {
+      //   final place = locationHistory.place;
+      //   if (place == null) return false;
+
+      //   final accuracy = place["accuracy"];
+      //   if (accuracy == null) return false;
+
+      //   return accuracy >= 0.3;
+      // }).toList();
+      // print(
+      //     'TabLocationHistoryPage: Filtered to ${currentHistory.length} entries with accuracy >= 0.3');
+
+      // 네이티브 데이터와 기존 데이터 병합
+      // final allLocationHistory = [...nativeLocationHistory, ...currentHistory];
+      final allLocationHistory = [...nativeLocationHistory];
+      print(
+          'TabLocationHistoryPage: Combined ${allLocationHistory.length} total entries');
+
+      // 중복 제거 (timestamp 기준)
+      final uniqueHistory = <LocationHistory>[];
+      final seenTimestamps = <int>{};
+
+      for (final location in allLocationHistory) {
+        final timestamp = location.timestamp.millisecondsSinceEpoch;
+        if (!seenTimestamps.contains(timestamp)) {
+          seenTimestamps.add(timestamp);
+          uniqueHistory.add(location);
+        }
+      }
+      print(
+          'TabLocationHistoryPage: After deduplication: ${uniqueHistory.length} unique entries');
+
+      // 시간순 정렬
+      uniqueHistory.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
       // 오늘의 위치 일기 불러오기
       final todayLocDiaries = await LocDiaryService().getLocDiariesForToday();
       // 오늘의 일기 불러오기
@@ -72,14 +137,16 @@ class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
 
       if (mounted) {
         setState(() {
-          _locationHistory = List.from(currentHistory)
-            ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+          _locationHistory = uniqueHistory;
           _todayLocDiaries = todayLocDiaries;
           _todayDiary = todayDiary;
           _isLoading = false;
         });
+        print(
+            'TabLocationHistoryPage: UI updated with ${uniqueHistory.length} location history entries');
       }
     } catch (e) {
+      print('TabLocationHistoryPage: Error loading location history: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -167,8 +234,14 @@ class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
             child: IconButton(
               icon: Icon(Icons.pin_drop_sharp),
               onPressed: () async {
-                String location = await platform.invokeMethod('searchPlace');
-                widget._locationHistoryManager.addLocationHistory(location);
+                try {
+                  await platform.invokeMethod('searchPlace');
+                  // EventChannel을 통해 위치 히스토리 업데이트 알림을 기다림
+                  // 네이티브에서 자동으로 알림을 보내므로 여기서는 별도 로드 불필요
+                } catch (e) {
+                  print(
+                      'TabLocationHistoryPage: Error adding current location: $e');
+                }
               },
             ),
           ),
