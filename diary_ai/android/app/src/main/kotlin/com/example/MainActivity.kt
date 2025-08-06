@@ -105,18 +105,39 @@ class MainActivity : FlutterActivity() {
                                 override fun onSuccess(response: PlengiResponse?) {
                                     // 위치 히스토리에 저장 (SharedPreferences에만 저장)
                                     try {
+                                        if (response == null) {
+                                            return
+                                        }
+
                                         val locationEntry =
                                                 DataManager.createLocationHistoryEntry(response)
-                                        DataManager.addLocationHistory(locationEntry)
-                                        println(
-                                                "Location history saved to SharedPreferences: ${locationEntry.placeName}"
-                                        )
 
-                                        // EventChannel을 통해 위치 히스토리 업데이트 알림 전송
-                                        EventStreamHandler.sendEvent("location_history_updated")
-                                        println(
-                                                "Sent location history update notification to Flutter"
-                                        )
+                                        val place = response.place
+                                        if (place != null) {
+                                            val accuracy = place.accuracy
+                                            val threshold = place.threshold
+
+                                            if (accuracy >= threshold || accuracy > 0.3) {
+                                                DataManager.addLocationHistory(locationEntry)
+                                                println(
+                                                    "Location history saved to SharedPreferences: ${locationEntry.placeName}"
+                                                )
+
+                                                // EventChannel을 통해 위치 히스토리 업데이트 알림 전송
+                                                EventStreamHandler.sendEvent("location_history_updated")
+                                                println(
+                                                        "Sent location history update notification to Flutter"
+                                                )
+                                            } else {
+                                                val placeName = place.name
+                                                DataManager.addExecutionLog(ExecutionLogEntry(
+                                                    action = "locationHistorySaveSuccess",
+                                                    details = "Accuracy is less than threshold",
+                                                    success = true,
+                                                    errorMessage = "placeName: $placeName, accuracy: $accuracy, threshold: $threshold"
+                                                ))
+                                            }
+                                        }
                                     } catch (e: Exception) {
                                         println("Failed to save location history: ${e.message}")
                                         DataManager.addExecutionLog(
