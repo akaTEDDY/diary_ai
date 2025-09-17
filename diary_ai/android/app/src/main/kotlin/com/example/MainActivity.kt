@@ -24,9 +24,11 @@ class MainActivity : FlutterActivity() {
         // MethodChannel 설정
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, METHOD_CHANNEL)
                 .setMethodCallHandler { call, result ->
+                    println("call.method: " + call.method)
                     when (call.method) {
                         "searchPlace" -> {
                             searchPlace(result)
+                            println("searchPlace! handle")
                         }
                         "plengiStartStop" -> {
                             Plengi.getInstance(this).stop()
@@ -98,6 +100,7 @@ class MainActivity : FlutterActivity() {
                         android.Manifest.permission.ACCESS_COARSE_LOCATION
                 )
         if (checkPermissionForTask(checkPermissions, LOCATION_PERMISSION_REQUEST_CODE)) {
+            println("TEST_refreshPlace_foreground!")
             Plengi.getInstance(this)
                     .TEST_refreshPlace_foreground(
                             object : OnPlengiListener {
@@ -121,19 +124,18 @@ class MainActivity : FlutterActivity() {
                                             println("threshold: " + threshold)
 
                                             val locationEntry =
-                                                DataManager.createLocationHistoryEntry(response)
+                                                    DataManager.createLocationHistoryEntry(response)
                                             DataManager.addLocationHistory(locationEntry)
 
                                             println(
-                                                "Location history saved to SharedPreferences: ${locationEntry.placeName}"
+                                                    "Location history saved to SharedPreferences: ${locationEntry.placeName}"
                                             )
 
-                                            // EventChannel을 통해 위치 히스토리 업데이트 알림 전송 (FG에서 동작하는 경우를 위함)
-                                            EventStreamHandler.sendEvent(
-                                                "location_history_updated"
-                                            )
+                                            // EventChannel을 통해 위치 히스토리 업데이트 알림 전송 (FG에서 동작하는 경우를
+                                            // 위함)
+                                            EventStreamHandler.sendEvent("location_history_updated")
                                             println(
-                                                "Sent location history update notification to Flutter"
+                                                    "Sent location history update notification to Flutter"
                                             )
                                         }
                                     } catch (e: Exception) {

@@ -2,6 +2,7 @@ import 'package:diary_ai/services/diary_notification_service.dart';
 import 'package:diary_ai/services/native_data_service.dart';
 import 'package:diary_ai/services/flutter_parsing_error_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import '../provider/settings_provider.dart';
 
@@ -1504,151 +1505,153 @@ class _TabSettingsPageState extends State<TabSettingsPage> {
                     ),
                   ),
 
-                  // WorkManager 설정 카드
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF8B5CF6).withOpacity(0.08),
-                          blurRadius: 20,
-                          offset: const Offset(0, 4),
+                  // WorkManager 설정 카드 (디버그 모드에서만 표시)
+                  if (kDebugMode)
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF8B5CF6).withOpacity(0.08),
+                            blurRadius: 20,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                        border: Border.all(
+                          color: const Color(0xFF8B5CF6).withOpacity(0.1),
                         ),
-                      ],
-                      border: Border.all(
-                        color: const Color(0xFF8B5CF6).withOpacity(0.1),
+                      ),
+                      padding: const EdgeInsets.all(24.0),
+                      margin: const EdgeInsets.only(bottom: 10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color:
+                                      const Color(0xFF8B5CF6).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  Icons.schedule,
+                                  color: const Color(0xFF8B5CF6),
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              const Text('백그라운드 실행 설정',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 18,
+                                      color: Color(0xFF2D3748))),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+
+                          // 디버깅 버튼들
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                '디버깅 도구',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF2D3748),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+
+                              // 실행 내역 확인 버튼
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  onPressed: () => _showExecutionLogsDialog(),
+                                  icon: Icon(Icons.history, size: 18),
+                                  label: Text('실행 내역 확인'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF8B5CF6)
+                                        .withOpacity(0.1),
+                                    foregroundColor: const Color(0xFF8B5CF6),
+                                    elevation: 0,
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      side: BorderSide(
+                                        color: const Color(0xFF8B5CF6)
+                                            .withOpacity(0.3),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(height: 12),
+
+                              // 네이티브 데이터 확인 버튼
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  onPressed: () => _showNativeDataDialog(),
+                                  icon: Icon(Icons.storage, size: 18),
+                                  label: Text('네이티브 데이터 확인'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF10B981)
+                                        .withOpacity(0.1),
+                                    foregroundColor: const Color(0xFF10B981),
+                                    elevation: 0,
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      side: BorderSide(
+                                        color: const Color(0xFF10B981)
+                                            .withOpacity(0.3),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(height: 12),
+
+                              // 플러터 파싱 에러 확인 버튼
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  onPressed: () =>
+                                      _showFlutterParsingErrorsDialog(),
+                                  icon: Icon(Icons.bug_report, size: 18),
+                                  label: Text(
+                                      '플러터 파싱 에러 확인 (${FlutterParsingErrorService().errorCount})'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFFFF6B35)
+                                        .withOpacity(0.1),
+                                    foregroundColor: const Color(0xFFFF6B35),
+                                    elevation: 0,
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      side: BorderSide(
+                                        color: const Color(0xFFFF6B35)
+                                            .withOpacity(0.3),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
-                    padding: const EdgeInsets.all(24.0),
-                    margin: const EdgeInsets.only(bottom: 10),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 36,
-                              height: 36,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF8B5CF6).withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Icon(
-                                Icons.schedule,
-                                color: const Color(0xFF8B5CF6),
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Text('백그라운드 실행 설정',
-                                style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 18,
-                                    color: Color(0xFF2D3748))),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-
-                        // 디버깅 버튼들
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              '디버깅 도구',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF2D3748),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-
-                            // 실행 내역 확인 버튼
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton.icon(
-                                onPressed: () => _showExecutionLogsDialog(),
-                                icon: Icon(Icons.history, size: 18),
-                                label: Text('실행 내역 확인'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      const Color(0xFF8B5CF6).withOpacity(0.1),
-                                  foregroundColor: const Color(0xFF8B5CF6),
-                                  elevation: 0,
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 12),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    side: BorderSide(
-                                      color: const Color(0xFF8B5CF6)
-                                          .withOpacity(0.3),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-
-                            const SizedBox(height: 12),
-
-                            // 네이티브 데이터 확인 버튼
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton.icon(
-                                onPressed: () => _showNativeDataDialog(),
-                                icon: Icon(Icons.storage, size: 18),
-                                label: Text('네이티브 데이터 확인'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      const Color(0xFF10B981).withOpacity(0.1),
-                                  foregroundColor: const Color(0xFF10B981),
-                                  elevation: 0,
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 12),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    side: BorderSide(
-                                      color: const Color(0xFF10B981)
-                                          .withOpacity(0.3),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-
-                            const SizedBox(height: 12),
-
-                            // 플러터 파싱 에러 확인 버튼
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton.icon(
-                                onPressed: () =>
-                                    _showFlutterParsingErrorsDialog(),
-                                icon: Icon(Icons.bug_report, size: 18),
-                                label: Text(
-                                    '플러터 파싱 에러 확인 (${FlutterParsingErrorService().errorCount})'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      const Color(0xFFFF6B35).withOpacity(0.1),
-                                  foregroundColor: const Color(0xFFFF6B35),
-                                  elevation: 0,
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 12),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    side: BorderSide(
-                                      color: const Color(0xFFFF6B35)
-                                          .withOpacity(0.3),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
                 ],
               ),
             ),

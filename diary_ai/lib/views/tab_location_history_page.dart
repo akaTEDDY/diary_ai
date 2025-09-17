@@ -2,6 +2,7 @@ import 'package:diary_ai/models/location_history.dart';
 import 'package:diary_ai/provider/location_history_update_provider.dart';
 import 'package:diary_ai/services/native_location_history_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'loc_diary_write_page.dart';
@@ -48,6 +49,7 @@ class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
   }
 
   void _setupEventChannel() {
+    print('TabLocationHistoryPage: Setting up EventChannel...');
     _eventSubscription = _eventChannel.receiveBroadcastStream().listen((event) {
       print('TabLocationHistoryPage: Received event: $event');
       if (event == 'location_history_updated') {
@@ -57,7 +59,10 @@ class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
       }
     }, onError: (error) {
       print('TabLocationHistoryPage: EventChannel error: $error');
+    }, onDone: () {
+      print('TabLocationHistoryPage: EventChannel stream closed');
     });
+    print('TabLocationHistoryPage: EventChannel setup completed');
   }
 
   @override
@@ -199,28 +204,32 @@ class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
               fontWeight: FontWeight.bold,
             )),
         actions: [
-          IconButton(
-            icon: Icon(Icons.power),
-            onPressed: () async {
-              await platform.invokeMethod('plengiStartStop');
-            },
-          ),
-          Tooltip(
-            message: '현재 위치 추가하기',
-            child: IconButton(
-              icon: Icon(Icons.pin_drop_sharp),
+          // 디버그 모드에서만 보이는 버튼들
+          if (kDebugMode) ...[
+            IconButton(
+              icon: Icon(Icons.power),
               onPressed: () async {
-                try {
-                  await platform.invokeMethod('searchPlace');
-                  // EventChannel을 통해 위치 히스토리 업데이트 알림을 기다림
-                  // 네이티브에서 자동으로 알림을 보내므로 여기서는 별도 로드 불필요
-                } catch (e) {
-                  print(
-                      'TabLocationHistoryPage: Error adding current location: $e');
-                }
+                await platform.invokeMethod('plengiStartStop');
               },
             ),
-          ),
+            Tooltip(
+              message: '현재 위치 추가하기',
+              child: IconButton(
+                icon: Icon(Icons.pin_drop_sharp),
+                onPressed: () async {
+                  try {
+                    await platform.invokeMethod('searchPlace');
+                    // EventChannel을 통해 위치 히스토리 업데이트 알림을 기다림
+                    // 네이티브에서 자동으로 알림을 보내므로 여기서는 별도 로드 불필요
+                  } catch (e) {
+                    print(
+                        'TabLocationHistoryPage: Error adding current location: $e');
+                  }
+                },
+              ),
+            ),
+          ],
+          // 리프레시 버튼은 항상 표시
           IconButton(
             icon: Icon(Icons.refresh),
             onPressed: _loadLocationHistory,
@@ -237,7 +246,16 @@ class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
                       Text('저장된 위치 히스토리가 없습니다.'),
                       SizedBox(height: 16),
                       ElevatedButton(
-                        onPressed: _loadLocationHistory,
+                        onPressed: () async {
+                          try {
+                            await platform.invokeMethod('searchPlace');
+                            // EventChannel을 통해 위치 히스토리 업데이트 알림을 기다림
+                            // 네이티브에서 자동으로 알림을 보내므로 여기서는 별도 로드 불필요
+                          } catch (e) {
+                            print(
+                                'TabLocationHistoryPage: Error adding current location: $e');
+                          }
+                        },
                         child: Text('현재 위치로 추가하기'),
                       ),
                     ],

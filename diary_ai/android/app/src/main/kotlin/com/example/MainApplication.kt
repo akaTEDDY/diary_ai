@@ -4,15 +4,11 @@ import android.app.Application
 import com.loplat.placeengine.Plengi
 import com.loplat.placeengine.PlengiListener
 import com.loplat.placeengine.PlengiResponse
-import io.flutter.plugin.common.EventChannel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class MainApplication : Application() {
-    companion object {
-        var eventSink: EventChannel.EventSink? = null
-    }
 
     override fun onCreate() {
         super.onCreate()
