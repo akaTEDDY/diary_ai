@@ -1,4 +1,4 @@
-import 'package:common_utils_services/models/location_history.dart';
+import 'package:diary_ai/models/location_history.dart';
 import 'package:diary_ai/provider/location_history_update_provider.dart';
 import 'package:diary_ai/services/native_location_history_service.dart';
 import 'package:flutter/material.dart';
@@ -88,35 +88,11 @@ class _TabLocationHistoryPageState extends State<TabLocationHistoryPage> {
       print(
           'TabLocationHistoryPage: Loaded ${nativeLocationHistory.length} entries from native');
 
-      // 기존 플러터 위치 히스토리와 병합
-      // var currentHistory = widget._locationHistoryManager.locationHistory;
-      // print(
-      //     'TabLocationHistoryPage: Found ${currentHistory.length} entries from existing Flutter data');
-
-      // accuracy가 0.3 이상인 히스토리만 남김 (기존 플러터 데이터)
-      // currentHistory = currentHistory.where((locationHistory) {
-      //   final place = locationHistory.place;
-      //   if (place == null) return false;
-
-      //   final accuracy = place["accuracy"];
-      //   if (accuracy == null) return false;
-
-      //   return accuracy >= 0.3;
-      // }).toList();
-      // print(
-      //     'TabLocationHistoryPage: Filtered to ${currentHistory.length} entries with accuracy >= 0.3');
-
-      // 네이티브 데이터와 기존 데이터 병합
-      // final allLocationHistory = [...nativeLocationHistory, ...currentHistory];
-      final allLocationHistory = [...nativeLocationHistory];
-      print(
-          'TabLocationHistoryPage: Combined ${allLocationHistory.length} total entries');
-
       // 중복 제거 (timestamp 기준)
       final uniqueHistory = <LocationHistory>[];
       final seenTimestamps = <int>{};
 
-      for (final location in allLocationHistory) {
+      for (final location in nativeLocationHistory) {
         final timestamp = location.timestamp.millisecondsSinceEpoch;
         if (!seenTimestamps.contains(timestamp)) {
           seenTimestamps.add(timestamp);

@@ -1,4 +1,4 @@
-import 'package:common_utils_services/services/notification_service.dart';
+import 'package:diary_ai/services/notification_service.dart';
 import 'package:diary_ai/services/app_lifecycle_service.dart';
 import 'package:diary_ai/utils/permission_utils.dart';
 import 'package:flutter/material.dart';

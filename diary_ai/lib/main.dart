@@ -1,4 +1,4 @@
-import 'package:common_utils_services/models/location_history.dart';
+import 'package:diary_ai/models/location_history.dart';
 import 'package:diary_ai/models/loc_diary_entry.dart';
 import 'package:diary_ai/models/background_execution_log.dart';
 import 'package:diary_ai/provider/location_diary_provider.dart';

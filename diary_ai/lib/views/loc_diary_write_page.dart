@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import 'package:common_utils_services/models/location_history.dart';
+import 'package:diary_ai/models/location_history.dart';
 import '../models/loc_diary_entry.dart';
 import '../services/loc_diary_service.dart';
 import 'package:uuid/uuid.dart';

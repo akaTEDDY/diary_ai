@@ -19,6 +19,12 @@ object DataManager {
         sharedPreferences = context.getSharedPreferences("diary_ai_data", Context.MODE_PRIVATE)
     }
 
+    // 최근 장소 하나만 조회하는 함수
+    fun getLatestLocationHistory(): LocationHistoryEntry? {
+        val history = getLocationHistory()
+        return history.lastOrNull()
+    }
+
     // 위치 히스토리 관리
     fun addLocationHistory(entry: LocationHistoryEntry) {
         val history = getLocationHistory().toMutableList()

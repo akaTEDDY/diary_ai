@@ -7,7 +7,6 @@ import androidx.core.content.edit
 import com.google.gson.Gson
 import com.loplat.placeengine.OnPlengiListener
 import com.loplat.placeengine.Plengi
-import com.loplat.placeengine.PlengiListener
 import com.loplat.placeengine.PlengiResponse
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -109,34 +108,33 @@ class MainActivity : FlutterActivity() {
                                             return
                                         }
 
-                                        val locationEntry =
-                                                DataManager.createLocationHistoryEntry(response)
-
                                         val place = response.place
                                         if (place != null) {
+                                            val placeName = place.name
+                                            val placeAddress = place.address
                                             val accuracy = place.accuracy
                                             val threshold = place.threshold
 
-                                            if (accuracy >= threshold || accuracy > 0.3) {
-                                                DataManager.addLocationHistory(locationEntry)
-                                                println(
-                                                    "Location history saved to SharedPreferences: ${locationEntry.placeName}"
-                                                )
+                                            println("placeName: " + placeName)
+                                            println("placeAddress: " + placeAddress)
+                                            println("accuracy: " + accuracy)
+                                            println("threshold: " + threshold)
 
-                                                // EventChannel을 통해 위치 히스토리 업데이트 알림 전송
-                                                EventStreamHandler.sendEvent("location_history_updated")
-                                                println(
-                                                        "Sent location history update notification to Flutter"
-                                                )
-                                            } else {
-                                                val placeName = place.name
-                                                DataManager.addExecutionLog(ExecutionLogEntry(
-                                                    action = "locationHistorySaveSuccess",
-                                                    details = "Accuracy is less than threshold",
-                                                    success = true,
-                                                    errorMessage = "placeName: $placeName, accuracy: $accuracy, threshold: $threshold"
-                                                ))
-                                            }
+                                            val locationEntry =
+                                                DataManager.createLocationHistoryEntry(response)
+                                            DataManager.addLocationHistory(locationEntry)
+
+                                            println(
+                                                "Location history saved to SharedPreferences: ${locationEntry.placeName}"
+                                            )
+
+                                            // EventChannel을 통해 위치 히스토리 업데이트 알림 전송 (FG에서 동작하는 경우를 위함)
+                                            EventStreamHandler.sendEvent(
+                                                "location_history_updated"
+                                            )
+                                            println(
+                                                "Sent location history update notification to Flutter"
+                                            )
                                         }
                                     } catch (e: Exception) {
                                         println("Failed to save location history: ${e.message}")

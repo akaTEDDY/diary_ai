@@ -1,4 +1,3 @@
-import 'dart:convert';
 
 class FlutterParsingError {
   final String errorType;

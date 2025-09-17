@@ -1,5 +1,5 @@
+import 'package:diary_ai/models/location_history.dart';
 import 'package:hive/hive.dart';
-import 'package:common_utils_services/models/location_history.dart';
 
 part 'loc_diary_entry.g.dart';
 
@@ -34,8 +34,9 @@ class LocDiaryEntry extends HiveObject {
       photoPaths:
           (json['photoPaths'] as List?)?.map((e) => e as String).toList() ?? [],
       location: json['location'] is Map<String, dynamic>
-          ? LocationHistory.fromJson(json['location'] as Map<String, dynamic>)
-          : LocationHistory.fromJson({}),
+          ? LocationHistory.fromJson(
+              json['createdAt'], json['location'] as Map<String, dynamic>)
+          : LocationHistory.fromJson(json['createdAt'], {}),
       createdAt: json['createdAt'] != null
           ? DateTime.tryParse(json['createdAt']) ?? DateTime.now()
           : DateTime.now(),

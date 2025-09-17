@@ -1,5 +1,6 @@
 import 'package:diary_ai/provider/diary_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../models/diary_entry.dart';
 import 'dart:io';
@@ -7,7 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../models/loc_diary_entry.dart';
 import 'package:diary_ai/provider/settings_provider.dart';
-import 'package:common_utils_services/services/ai_services.dart';
+import 'package:diary_ai/services/ai_services.dart';
 import 'package:diary_ai/utils/prompt_utils.dart';
 import '../services/diary_service.dart';
 
@@ -566,6 +567,9 @@ class _TabDiaryListPageState extends State<TabDiaryListPage> {
 
   // AI 피드백 요청 가능 여부(22~23시, 작성일이 오늘인지)
   bool canRequestAIFeedback(DiaryEntry entry) {
+    if (kDebugMode) {
+      return true;
+    }
     final now = DateTime.now();
     final isSameDay = now.year == entry.createdAt.year &&
         now.month == entry.createdAt.month &&
